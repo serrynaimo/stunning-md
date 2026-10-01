@@ -16,8 +16,8 @@ import type { View } from "./nav"
 import { PlainDocument, SourceView } from "./plain"
 import { SectionView } from "./section"
 
-/** What a turn tells the page about itself: its layout plan and the theme it settled on. */
-export type TurnReport = { plan: DocumentPlan; theme: ThemeChoice }
+/** What a turn tells the page about itself: its layout plan and the theme it settled on — `null` until it has. */
+export type TurnReport = { plan: DocumentPlan; theme: ThemeChoice | null }
 
 export type TurnViewProps = {
   /** Identifies the turn; its element is `#<id>-turn`. */
@@ -259,7 +259,9 @@ export function TurnView({
   }, [parsed, palettePick, lockTheme, locked, suggested, fixedTheme])
 
   const fontsReady = useFonts(googleFontsUrl(fontPairings[theme.fonts]), loadFonts)
-  const visible = measured && hasText && (!lockTheme || locked !== null)
+  // A turn that chooses its look from its opening has none until that choice is made.
+  const themed = !lockTheme || locked !== null
+  const visible = measured && hasText && themed
 
   // 3. Say when the top of the turn has stopped moving: the theme and its fonts
   //    are in, and no unanswered question concerns a block near the top. The turn
@@ -293,8 +295,8 @@ export function TurnView({
   }, [revealed, onReady])
 
   useEffect(() => {
-    onReport(id, { plan, theme })
-  }, [id, plan, theme, onReport])
+    onReport(id, { plan, theme: themed ? theme : null })
+  }, [id, plan, theme, themed, onReport])
 
   const style = useMemo(() => themeVars(theme, appearance), [theme, appearance])
   const chartTheme = useMemo(() => chartThemeFor(theme), [theme])

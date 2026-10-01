@@ -103,7 +103,8 @@ describe("sortReply", () => {
   it("with a classifier, lets wording settle the obvious remarks and asks only about unclear paragraphs", async () => {
     const asked: string[] = []
     const classify = vi.fn(async (request: ClassifierRequest): Promise<ClassifierAnswers> => {
-      asked.push(request.state)
+      // The opening paragraph is also asked about separately (does the model have an answer?); see below.
+      if (request.questions.commentary) asked.push(request.state)
       return { commentary: { type: "noul", noul: 0.05 } }
     })
     const { events, result } = await run(REPLY, classify)
@@ -120,7 +121,7 @@ describe("sortReply", () => {
     const reply = "This guide covers the basics.\n\n## Steps\n\n- Boil water\n- Pour slowly\n\nThat covers everything you need."
     const asked: string[] = []
     const verdict = (score: number) => async (request: ClassifierRequest): Promise<ClassifierAnswers> => {
-      asked.push(request.state)
+      if (request.questions.commentary) asked.push(request.state)
       return { commentary: { type: "noul", noul: score } }
     }
     const remarks = await run(reply, verdict(0.6))
@@ -230,5 +231,59 @@ describe("titles and context", () => {
     expect(context).toMatch(/only the new material/)
     expect(context).toContain("<document>\n# Title\n\nBody\n</document>")
     expect(documentContext("x".repeat(20000)).length).toBeLessThan(16400)
+  })
+})
+
+describe("replies that are not answers", () => {
+  const collect = async (text: string, classify?: (request: ClassifierRequest) => Promise<ClassifierAnswers>) => {
+    const events: TurnEvent[] = []
+    const result = await sortReply({ stream: streamOf(text), request: "Add the Q4 numbers", classify, onEvent: (e) => events.push(e) })
+    return { events, result, remarks: events.filter((e) => e.type === "commentary").map((e) => (e as { text: string }).text) }
+  }
+  /** Answers "does the model know the answer?" with `knows`, and calls nothing else a remark. */
+  const judge = (knows: number) => async (request: ClassifierRequest): Promise<ClassifierAnswers> =>
+    request.questions.answers ? { answers: { type: "noul", noul: knows } } : { commentary: { type: "noul", noul: 0.05 } }
+
+  it("asks, about the opening paragraph, whether the model has an answer — with the request as context", async () => {
+    const asked: ClassifierRequest[] = []
+    await collect("I'm not sure which numbers you mean.\n\nShare them and I will add a table.", async (request) => {
+      asked.push(request)
+      return judge(0.02)(request)
+    })
+    const question = asked.find((request) => request.questions.answers)!
+    expect(question.state).toBe("User: Add the Q4 numbers\nAssistant: I'm not sure which numbers you mean.")
+  })
+
+  it("puts nothing on the page when the model has no answer", async () => {
+    const { events, result, remarks } = await collect("The figures are not in the document.\n\nShare them and I will add a table.", judge(0.02))
+    expect(events.find((e) => e.type === "answer")).toEqual({ type: "answer", answered: false })
+    expect(events.filter((e) => e.type === "content")).toHaveLength(0)
+    expect(remarks).toEqual(["The figures are not in the document.", "Share them and I will add a table."])
+    expect(result.content).toBe("")
+  })
+
+  it("lays the answer out as usual when the model has one", async () => {
+    const { events, result } = await collect("Revenue rose in every quarter.\n\n## Q4\n\n- Up 12%", judge(0.97))
+    expect(events.some((e) => e.type === "answer")).toBe(false)
+    expect(result.content).toContain("Revenue rose in every quarter.")
+  })
+
+  it("takes it back if content follows a hesitant opening", async () => {
+    const { events, result, remarks } = await collect("I don't have the real figures, so these are placeholders.\n\n## Q4\n\n| Month | Sales |\n| --- | --- |\n| Oct | 10 |", judge(0.1))
+    expect(events.filter((e) => e.type === "answer")).toEqual([
+      { type: "answer", answered: false },
+      { type: "answer", answered: true },
+    ])
+    expect(remarks).toEqual(["I don't have the real figures, so these are placeholders."])
+    expect(result.content.startsWith("## Q4")).toBe(true)
+  })
+
+  it("without a classifier, recognises the usual ways of not answering", async () => {
+    for (const opening of ["Sorry, I can't help with that.", "I'm not sure what you mean. Could you clarify?", "I don't have access to that file.", "Could you tell me which report you mean?"]) {
+      const { events } = await collect(opening)
+      expect(events.find((e) => e.type === "answer"), opening).toEqual({ type: "answer", answered: false })
+    }
+    const answered = await collect("Sure — here it is.\n\n## Q4\n\n- Up 12%")
+    expect(answered.events.some((e) => e.type === "answer")).toBe(false)
   })
 })

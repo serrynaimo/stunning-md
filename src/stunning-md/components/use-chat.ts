@@ -14,6 +14,8 @@ export type ChatTurn = {
   writing: string | null
   /** What the reader asked for. */
   request: string
+  /** The model opened without an answer; unless content follows, the turn has nothing for the page. */
+  unanswered: boolean
 }
 
 /** One entry in the conversation, in the order it happened. */
@@ -33,8 +35,16 @@ const NOTE_LIFETIME = 7000
  * streams: remarks go to the conversation (and briefly above the input), and
  * the answer itself is handed to the page a section at a time.
  */
-export function useChatSession(options: { chat?: Chat; classifier?: Classify; document: string; onTurnStart?: (turnId: string) => void }) {
-  const { chat, classifier, document, onTurnStart } = options
+export function useChatSession(options: {
+  chat?: Chat
+  classifier?: Classify
+  document: string
+  /** A turn has a place on the page and is about to be written. */
+  onTurnStart?: (turnId: string) => void
+  /** A turn turned out to have nothing for the page; its place is given up. */
+  onTurnEmpty?: (turnId: string) => void
+}) {
+  const { chat, classifier, document, onTurnStart, onTurnEmpty } = options
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [items, setItems] = useState<StreamItem[]>([])
   const [notes, setNotes] = useState<ChatNote[]>([])
@@ -62,6 +72,8 @@ export function useChatSession(options: { chat?: Chat; classifier?: Classify; do
       abort.current = controller
       let sequence = 0
       let referenced = false
+      // Whether the turn's place on the page has already been given up.
+      let vacated = false
 
       const patch = (change: Partial<ChatTurn>) => setTurns((all) => all.map((turn) => (turn.id === turnId ? { ...turn, ...change } : turn)))
       const remark = (remarkText: string, failed = false) => {
@@ -77,19 +89,28 @@ export function useChatSession(options: { chat?: Chat; classifier?: Classify; do
 
       setBusy(true)
       setItems((all) => [...all, { id: `${turnId}-u`, type: "user", text: request }])
-      setTurns((all) => [...all, { id: turnId, markdown: "", streaming: true, writing: null, request }])
+      setTurns((all) => [...all, { id: turnId, markdown: "", streaming: true, writing: null, request, unanswered: false }])
       onTurnStart?.(turnId)
 
       const messages: ChatMessage[] = [{ role: "system", content: CHAT_INSTRUCTIONS + documentContext(document) }, ...history.current, { role: "user", content: request }]
 
       sortReply({
         stream: chat(messages, controller.signal),
+        request,
         classify: classifier,
         signal: controller.signal,
         onEvent: (event) => {
           if (controller.signal.aborted) return
           if (event.type === "commentary") remark(event.text)
           else if (event.type === "writing") patch({ writing: event.heading })
+          else if (event.type === "answer") {
+            patch({ unanswered: !event.answered })
+            if (event.answered) onTurnStart?.(turnId)
+            else {
+              vacated = true
+              onTurnEmpty?.(turnId)
+            }
+          }
           else {
             // The content lives on the page; the conversation only points to it.
             if (!referenced) {
@@ -111,10 +132,12 @@ export function useChatSession(options: { chat?: Chat; classifier?: Classify; do
         .finally(() => {
           if (abort.current === controller) abort.current = null
           patch({ streaming: false, writing: null })
+          // A reply that was all conversation leaves nothing on the page.
+          if (!referenced && !vacated) onTurnEmpty?.(turnId)
           setBusy(false)
         })
     },
-    [chat, classifier, document, onTurnStart],
+    [chat, classifier, document, onTurnStart, onTurnEmpty],
   )
 
   const stop = useCallback(() => abort.current?.abort(), [])

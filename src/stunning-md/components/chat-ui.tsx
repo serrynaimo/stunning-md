@@ -135,6 +135,8 @@ export function SidebarContents({
 export function ChatDock({
   notes,
   busy,
+  quiet = false,
+  over = false,
   canClear,
   accessory,
   style,
@@ -144,6 +146,10 @@ export function ChatDock({
 }: {
   notes: ChatNote[]
   busy: boolean
+  /** The conversation is in view beside the page, so remarks need not be shown here as well. */
+  quiet?: boolean
+  /** The conversation is open in a sheet over the page; the input floats above that too. */
+  over?: boolean
   canClear: boolean
   /** The look of the chat controls, which does not follow the page's theme. */
   style?: React.CSSProperties
@@ -170,8 +176,9 @@ export function ChatDock({
   }
 
   return (
-    <div className="smd-chat-dock" data-accessory={accessory ? "" : undefined} style={style}>
-      <div className="smd-chat-notes" aria-live="polite">
+    <div className="smd-chat-dock" data-accessory={accessory ? "" : undefined} data-over={over || undefined} style={style}>
+      {/* Still announced when the conversation is in view; just not shown twice. */}
+      <div className={quiet ? "sr-only" : "smd-chat-notes"} aria-live="polite">
         {notes.map((note) => (
           <div key={note.id} className="smd-chat-note">
             <Remark text={note.text} />

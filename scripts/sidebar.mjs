@@ -25,6 +25,13 @@ const state = async (label) => {
   console.log(label.padEnd(34), JSON.stringify(s))
 }
 await state("1600 wide, on load")
+// With chat, the sidebar holds the conversation too and stays shut until there is one.
+const shut = page.getByRole("button", { name: "Show chat" })
+if (await shut.count()) {
+  await shut.click()
+  await page.waitForTimeout(400)
+  await state("chat: opened by hand")
+}
 await page.screenshot({ path: `${out}/sidebar-1600.png` })
 await page.locator(".smd-sidebar").getByRole("link", { name: "Regional performance" }).click()
 await page.waitForTimeout(900)

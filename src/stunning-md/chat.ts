@@ -210,6 +210,12 @@ export type TurnEvent =
   | { type: "content"; markdown: string }
   /** What is being written now — the heading of the section in progress, if it has one. */
   | { type: "writing"; heading: string | null }
+  /**
+   * Whether the reply is an answer at all. Sent with `false` when the model
+   * opens by saying it does not know, cannot help or needs to ask something —
+   * there will be nothing for the page — and with `true` if content follows after all.
+   */
+  | { type: "answer"; answered: boolean }
 
 export type TurnResult = {
   /** Everything the model said, untouched. */
@@ -229,6 +235,18 @@ const COMMENTARY_QUESTION = {
 /** Wording that marks a paragraph as addressed to the user rather than written for the page. */
 const ADDRESSES_USER =
   /^(sure|certainly|of course|absolutely|great|okay|ok|alright|got it|no problem|here[’']?s|here (is|are)|below (is|are|you)|i[’'](ve|ll|d)\b|i (have|will|can|kept|made|added|drafted|wrote|put|used|assumed|left)\b|let me\b|hope (this|that)|want me to|would you like|do you want|should i\b|feel free|happy to|if you[’']?d like|if you would like|is there anything|anything else)|\blet me know\b|\bwant me to\b|\bwould you like me to\b/i
+
+const ANSWERS_QUESTION = {
+  type: "noul" as const,
+  criteria: {
+    true: "the assistant knows the answer and is providing it",
+    false: "the assistant does not know the answer, cannot help, or asks a question back",
+  },
+}
+
+/** Openings that give no answer — used when there is no classifier to ask. */
+const NO_ANSWER =
+  /^(sorry|apologies|unfortunately|i[’']?m (not sure|sorry|afraid|unable|not able)|i (don[’']?t|do not|can[’']?t|cannot|couldn[’']?t|am not able|am unable)\b|(could|can|would) you (please )?(clarify|tell|share|provide|say|explain|rephrase|give)|what (do you mean|would you like|exactly))/i
 
 /** Where a paragraph sits in the reply — remarks to the user live at its edges. */
 type Position = "opening" | "inside" | "closing"
@@ -252,11 +270,13 @@ const headingText = (block: ReplyBlock) => block.text.replace(/^#{1,6}\s+/, "").
  */
 export async function sortReply(options: {
   stream: AsyncIterable<string>
+  /** What the user asked — needed to judge whether the reply answers it. */
+  request?: string
   classify?: Classify
   signal?: AbortSignal
   onEvent: (event: TurnEvent) => void
 }): Promise<TurnResult> {
-  const { stream, classify, signal, onEvent } = options
+  const { stream, request, classify, signal, onEvent } = options
   const splitter = new BlockSplitter()
   const released: string[] = []
   let raw = ""
@@ -271,6 +291,23 @@ export async function sortReply(options: {
   // Whether a paragraph is the last thing in the reply is only known once the
   // next block arrives — or does not.
   let settlePosition: ((position: Position) => void) | null = null
+
+  // Set when the reply opens without an answer: nothing is for the page unless real content follows.
+  let unanswered = false
+
+  /**
+   * Whether the reply's opening paragraph is an answer, or the start of one —
+   * as opposed to "I don't know", "I can't help" or a question back. Unlike the
+   * remark-or-content question, this is one the classifier answers reliably.
+   */
+  const answers = (text: string): Promise<boolean> => {
+    if (!classify) return Promise.resolve(!NO_ANSWER.test(text))
+    const state = `${request ? `User: ${request.replace(/\s+/g, " ").slice(0, 400)}\n` : ""}Assistant: ${text.slice(0, 700)}`
+    return classify({ state, questions: { answers: ANSWERS_QUESTION } }, signal).then(
+      (result) => (result.answers?.type === "noul" ? result.answers.noul >= 0.5 : !NO_ANSWER.test(text)),
+      () => !NO_ANSWER.test(text),
+    )
+  }
 
   const emitContent = () => onEvent({ type: "content", markdown: released.join("\n\n") })
   const flush = () => {
@@ -311,6 +348,13 @@ export async function sortReply(options: {
   }
 
   const handle = (block: ReplyBlock, commentary: boolean) => {
+    if (unanswered) {
+      // Everything said around a non-answer is conversation…
+      if (block.kind === "paragraph") return onEvent({ type: "commentary", text: block.text })
+      // …unless the model goes on to produce something after all.
+      unanswered = false
+      onEvent({ type: "answer", answered: true })
+    }
     if (commentary) return onEvent({ type: "commentary", text: block.text })
     if (block.kind === "heading") {
       const depth = block.depth ?? 2
@@ -335,10 +379,20 @@ export async function sortReply(options: {
       // Something followed the previous paragraph, so it was not the closing one.
       settlePosition?.("inside")
       settlePosition = null
-      const verdict = isCommentary(block, index++ === 0)
+      const first = index++ === 0
+      const verdict = isCommentary(block, first)
+      // The opening paragraph also says whether there is an answer coming at all.
+      const answered = first && block.kind === "paragraph" ? answers(block.text) : null
       if (block.kind === "heading") lastHeading = headingText(block)
       if (block.kind !== "paragraph") structured = true
-      chain = chain.then(async () => handle(block, await verdict))
+      chain = chain.then(async () => {
+        if (answered && !(await answered)) {
+          unanswered = true
+          onEvent({ type: "answer", answered: false })
+        }
+        // Nothing more needs judging about a paragraph of a non-answer.
+        handle(block, unanswered && block.kind === "paragraph" ? true : await verdict)
+      })
     }
   }
 

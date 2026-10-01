@@ -128,6 +128,9 @@
   border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
   font-size: 0.875rem;
 }
+.smd-nav-row {
+  padding-inline: 1.25rem;
+}
 .smd-nav-title {
   font-family: var(--smd-font-heading);
   font-weight: var(--smd-heading-weight);
@@ -158,13 +161,6 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--smd-sidebar-w);
 }
-/* The bar's title lines up with the narrowed document; its controls sit above the sidebar. */
-.smd-nav[data-sidebar] > .smd-container {
-  width: auto;
-  margin-inline: 0;
-  padding-left: max(var(--smd-gutter), calc((100% - var(--smd-sidebar-w) - var(--smd-max)) / 2));
-  padding-right: 0.75rem;
-}
 .smd-content {
   min-width: 0;
   display: flex;
@@ -184,6 +180,8 @@
 .smd[data-chat] .smd-sidebar {
   top: 0;
   height: 100svh;
+  /* The input floats over the foot of the sidebar; the conversation ends above it. */
+  padding-bottom: 4.5rem;
 }
 
 /* --- Turns: several documents on one page ------------------------------------
@@ -262,6 +260,14 @@
   --smd-chat-box: calc(var(--smd-chat-button) + 2 * var(--smd-chat-inset) + 2px);
   color: var(--foreground);
   font-family: var(--smd-font-body);
+}
+/* Centred on the whole page: with the conversation beside it, the input reaches over the sidebar. */
+.smd-body[data-sidebar] .smd-chat-dock {
+  width: calc(100% + var(--smd-sidebar-w));
+}
+/* And over the sheet that holds the conversation on a narrower screen. */
+.smd-chat-dock[data-over] {
+  z-index: 55;
 }
 .smd-chat-dock > * {
   width: min(100%, 46rem);
@@ -436,7 +442,7 @@
   line-height: 1.5;
 }
 .smd-chat-empty {
-  padding: 0.25rem 1.5rem 1.5rem;
+  padding: 1rem 1.5rem 1.5rem;
   font-size: 0.875rem;
   color: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
 }
@@ -504,6 +510,16 @@
 }
 .smd-toc-body {
   overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* Room at the foot for the chat input, which floats over the panel. */
+.smd-toc[data-docked] .smd-toc-body {
+  flex: 1;
+  padding-bottom: 4.25rem;
+}
+/* With no heading above it, the panel's content starts below the close button. */
+.smd-toc[data-headless] .smd-toc-body {
+  padding-top: 2.75rem;
 }
 .smd-toc-body .smd-sidebar-meta {
   display: none;

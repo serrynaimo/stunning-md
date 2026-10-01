@@ -50,8 +50,12 @@ export function useReadingPosition(ids: string[], root: React.RefObject<HTMLElem
     update()
     window.addEventListener("scroll", onScroll, { passive: true })
     window.addEventListener("resize", onScroll)
+    // Content that arrives or reflows moves the sections without any scrolling.
+    const resized = new ResizeObserver(onScroll)
+    if (root.current) resized.observe(root.current)
     return () => {
       cancelAnimationFrame(frame)
+      resized.disconnect()
       window.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", onScroll)
     }
@@ -112,6 +116,20 @@ export function Sidebar({
   )
 }
 
+/** The same contents in the sheet used on narrow screens; it follows the conversation too. */
+function SheetBody({ tail, children }: { tail: number; children: React.ReactNode }) {
+  const scroller = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const box = scroller.current
+    if (box && tail > 0) box.scrollTop = box.scrollHeight
+  }, [tail])
+  return (
+    <div ref={scroller} className="smd-toc-body">
+      {children}
+    </div>
+  )
+}
+
 /** How the document is shown: its raw text, an ordinary rendering, or the designed page. */
 export type View = "source" | "plain" | "designed"
 
@@ -165,7 +183,7 @@ export function Nav({
   root,
   bar,
   sidebar,
-  scoped = false,
+  menu,
   view,
   onView,
   onPalette,
@@ -185,26 +203,33 @@ export function Nav({
     showTitle?: boolean
     /** A look of its own for the panel, when it should not follow the page's theme. */
     style?: React.CSSProperties
+    /**
+     * The chat input floats above the panel and stays in use while it is open:
+     * the panel leaves room for it, and the rest of the page is not shut off.
+     */
+    docked?: boolean
+    /** Grows with the conversation, so the panel can keep its end in view. */
+    tail?: number
     render: (navigate: (id: string) => void) => React.ReactNode
   } | null
   root: React.RefObject<HTMLElement | null>
   bar: React.RefObject<HTMLDivElement | null>
   sidebar: SidebarState
-  /** The bar sits above the page only, with the sidebar running the full height beside it. */
-  scoped?: boolean
+  /** Whether the contents sheet is open, on screens too narrow for the sidebar. */
+  menu: { open: boolean; onOpenChange: (open: boolean) => void }
   view: View
   onView: (view: View) => void
   onPalette: (palette: PaletteId) => void
   onAppearance: (appearance: Appearance) => void
 }) {
   const { portal, theme, appearance, controls } = useStunning()
-  const [open, setOpen] = useState(false)
 
   if (!contents && !controls) return null
 
   return (
-    <nav className="smd-nav" aria-label="Document" data-sidebar={(!scoped && sidebar.available && sidebar.open) || undefined}>
-      <div className="smd-container flex h-12 items-center gap-2">
+    <nav className="smd-nav" aria-label="Document">
+      {/* The title and the controls keep to the ends of the bar, whatever the width of the page beneath. */}
+      <div className="smd-nav-row flex h-12 items-center gap-2">
         {title && (
           <a
             href={`#${titleTarget ?? "top"}`}
@@ -273,25 +298,46 @@ export function Nav({
             </Button>
           )}
           {contents && !sidebar.available && (
-            <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger render={<Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5" aria-label={`Open ${contents.label.toLowerCase()}`} />}>
+            <Sheet
+              open={menu.open}
+              modal={!contents.docked}
+              onOpenChange={(next, details) => {
+                // Using the chat input, which floats above the panel, is not a reason to close it.
+                if (!next && contents.docked && (details.reason === "outside-press" || details.reason === "focus-out")) {
+                  const event = details.event as Event & { relatedTarget?: EventTarget | null }
+                  const inDock = (node: EventTarget | null | undefined) => node instanceof Element && !!node.closest(".smd-chat-dock")
+                  if (inDock(event.target) || inDock(event.relatedTarget)) {
+                    details.cancel()
+                    return
+                  }
+                }
+                menu.onOpenChange(next)
+              }}
+            >
+              {/* On a phone the button is the icon alone: pulled out so the icon, not its padding, meets the page margin. */}
+              <SheetTrigger render={<Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5 max-sm:-mr-2.5" aria-label={`Open ${contents.label.toLowerCase()}`} />}>
                 <MenuIcon />
                 <span className="hidden sm:inline">{contents.label}</span>
               </SheetTrigger>
-              <SheetContent style={contents.style ?? portal.style} className={cn(portal.className, "smd-toc gap-0")}>
+              <SheetContent
+                style={contents.style ?? portal.style}
+                className={cn(portal.className, "smd-toc gap-0")}
+                data-headless={(contents.showTitle === false && !contents.description) || undefined}
+                data-docked={contents.docked || undefined}
+              >
                 <SheetHeader className={contents.showTitle === false && !contents.description ? "sr-only" : undefined}>
                   <SheetTitle className={contents.showTitle === false ? "sr-only" : undefined}>{contents.label}</SheetTitle>
                   <SheetDescription className={contents.description ? undefined : "sr-only"}>
                     {contents.description || "Jump to a part of the page."}
                   </SheetDescription>
                 </SheetHeader>
-                <div className="smd-toc-body">
+                <SheetBody tail={contents.tail ?? 0}>
                   {contents.render((id) => {
-                    setOpen(false)
+                    menu.onOpenChange(false)
                     // Wait for the sheet to release its scroll lock.
                     setTimeout(() => scrollToId(id), 60)
                   })}
-                </div>
+                </SheetBody>
               </SheetContent>
             </Sheet>
           )}

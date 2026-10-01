@@ -132,13 +132,23 @@ function Page({
   const [cleared, setCleared] = useState(false)
 
   const hasDocument = markdown.trim().length > 0 && !cleared
+  // Where the reader was before a turn took them to its place on the page.
+  const before = useRef(0)
   const session = useChatSession({
     chat,
     classifier,
     document: hasDocument ? markdown : "",
     // Bring the new turn into view; its content will appear there.
     onTurnStart: useCallback((turnId: string) => {
+      before.current = window.scrollY
       setTimeout(() => scrollToId(`${turnId}-turn`), 80)
+    }, []),
+    // The model had nothing for the page: its place is gone, so go back to where the reader was.
+    onTurnEmpty: useCallback(() => {
+      setTimeout(() => {
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        window.scrollTo({ top: before.current, behavior: reduce ? "auto" : "smooth" })
+      }, 80)
     }, []),
   })
 
@@ -146,7 +156,9 @@ function Page({
   const turns = useMemo(
     () => [
       ...(hasDocument ? [{ id: DOCUMENT, prefix: "", markdown, streaming: false, writing: null as string | null, request: "" }] : []),
-      ...session.turns.filter((turn) => turn.streaming || turn.markdown.trim()).map((turn) => ({ ...turn, prefix: `${turn.id}-` })),
+      ...session.turns
+        .filter((turn) => (turn.streaming && !turn.unanswered) || turn.markdown.trim())
+        .map((turn) => ({ ...turn, prefix: `${turn.id}-` })),
     ],
     [hasDocument, markdown, session.turns],
   )
@@ -154,7 +166,7 @@ function Page({
   const report = useCallback(
     (id: string, next: TurnReport) => {
       setReports((all) => (all[id]?.plan === next.plan && all[id]?.theme === next.theme ? all : { ...all, [id]: next }))
-      if (id === DOCUMENT) onPlan?.(next.plan, next.theme)
+      if (id === DOCUMENT && next.theme) onPlan?.(next.plan, next.theme)
     },
     [onPlan],
   )
@@ -182,7 +194,8 @@ function Page({
   )
   const position = useReadingPosition(anchors, root)
 
-  // The bar, the sidebar and the input take on the look of the turn being read.
+  // The bar takes on the look of the turn being read — or, while a new turn has
+  // yet to choose one, the plain look of the chat.
   const activeTurn = useMemo(() => {
     const active = position.active
     const owner = active && turns.find((turn) => active === `${turn.id}-turn` || reports[turn.id]?.plan.toc.some((entry) => entry.id === active))
@@ -217,13 +230,22 @@ function Page({
   // Contents and conversation: beside the page when there is room for both, in a sheet otherwise.
   const hasContents = view !== "source" && (!!chat || !!documentPlan?.showToc)
   const wide = useWide(root, SIDEBAR_MIN_WIDTH)
-  const [sidebarWanted, setSidebarWanted] = useState(true)
+  // A document's contents are open from the start. A conversation stays out of the
+  // way until there is something in it: it opens when the first reply starts to
+  // arrive. Either way, the reader's own choice then stands.
+  const [sidebarPick, setSidebarPick] = useState<boolean | null>(null)
+  const replied = session.items.some((item) => item.type !== "user")
+  const sidebarWanted = sidebarPick ?? (chat ? replied : true)
   const sidebarId = useId()
   const sidebar = useMemo(
-    () => ({ available: wide && hasContents, open: sidebarWanted, toggle: () => setSidebarWanted((open) => !open), id: sidebarId }),
+    () => ({ available: wide && hasContents, open: sidebarWanted, toggle: () => setSidebarPick(!sidebarWanted), id: sidebarId }),
     [wide, hasContents, sidebarWanted, sidebarId],
   )
   const showSidebar = sidebar.available && sidebar.open
+  // On a narrower screen the same contents open in a sheet over the page.
+  const [sheetWanted, setSheetWanted] = useState(false)
+  const menu = useMemo(() => ({ open: sheetWanted, onOpenChange: setSheetWanted }), [sheetWanted])
+  const showSheet = sheetWanted && hasContents && !sidebar.available
   const meta = documentPlan ? `${documentPlan.readingTime} min read · ${documentPlan.sections.filter((s) => s.titleText).length} sections` : ""
   const renderContents = (navigate: (id: string) => void) => (
     <SidebarContents
@@ -253,6 +275,7 @@ function Page({
     setCleared(true)
     setReports({})
     setPalettePicks({})
+    setSidebarPick(null)
     onClear?.()
     window.scrollTo({ top: (root.current?.getBoundingClientRect().top ?? 0) + window.scrollY })
   }
@@ -263,14 +286,18 @@ function Page({
 
   const nav = (
     <Nav
-      scoped={!!chat}
       title={title}
       titleTarget={activeTurn ? `${activeTurn}-turn` : undefined}
       crumb={crumb}
-      contents={hasContents ? { label: chat ? "Chat" : "Contents", description: meta, showTitle: !chat, style: chatStyle, render: renderContents } : null}
+      contents={
+        hasContents
+          ? { label: chat ? "Chat" : "Contents", description: meta, showTitle: !chat, style: chatStyle, docked: !!chat, tail: session.items.length, render: renderContents }
+          : null
+      }
       root={root}
       bar={position.bar}
       sidebar={sidebar}
+      menu={menu}
       view={view}
       onView={setView}
       onPalette={(palette) => setPalettePicks((all) => ({ ...all, [activeTurn ?? ""]: palette }))}
@@ -351,6 +378,8 @@ function Page({
                 <ChatDock
                   notes={session.notes}
                   busy={session.busy}
+                  quiet={showSidebar || showSheet}
+                  over={showSheet}
                   canClear={turns.length > 0 || session.items.length > 0}
                   accessory={chatAccessory}
                   style={chatStyle}

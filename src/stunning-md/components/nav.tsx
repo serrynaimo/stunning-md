@@ -66,7 +66,26 @@ export type ReadingPosition = ReturnType<typeof useReadingPosition>
 export type SidebarState = { available: boolean; open: boolean; toggle: () => void; id: string }
 
 /** The contents and conversation, pinned beside the page on wide screens. */
-export function Sidebar({ id, title, active, tail, children }: { id: string; title: string; active: string | null; tail: number; children: React.ReactNode }) {
+export function Sidebar({
+  id,
+  title,
+  showTitle = true,
+  active,
+  tail,
+  style,
+  children,
+}: {
+  id: string
+  /** Names the sidebar for assistive technology. */
+  title: string
+  /** Whether the name is also shown as a heading. */
+  showTitle?: boolean
+  active: string | null
+  tail: number
+  /** A look of its own, when the sidebar should not follow the page's theme. */
+  style?: React.CSSProperties
+  children: React.ReactNode
+}) {
   const scroller = useRef<HTMLElement>(null)
 
   // Keep the current entry in view as the reader moves through a long document.
@@ -86,8 +105,8 @@ export function Sidebar({ id, title, active, tail, children }: { id: string; tit
   }, [tail])
 
   return (
-    <nav ref={scroller} id={id} className="smd-sidebar" aria-label={title}>
-      <p className="smd-sidebar-title">{title}</p>
+    <nav ref={scroller} id={id} className="smd-sidebar" aria-label={title} style={style}>
+      {showTitle && <p className="smd-sidebar-title">{title}</p>}
       {children}
     </nav>
   )
@@ -155,7 +174,15 @@ export function Nav({
   /** The section being read. */
   crumb: string | null
   /** What the contents menu holds on narrow screens, or `null` if there is nothing to list. */
-  contents: { label: string; description: string; render: (navigate: (id: string) => void) => React.ReactNode } | null
+  contents: {
+    label: string
+    description: string
+    /** Whether the panel shows its name as a heading. */
+    showTitle?: boolean
+    /** A look of its own for the panel, when it should not follow the page's theme. */
+    style?: React.CSSProperties
+    render: (navigate: (id: string) => void) => React.ReactNode
+  } | null
   root: React.RefObject<HTMLElement | null>
   bar: React.RefObject<HTMLDivElement | null>
   sidebar: SidebarState
@@ -244,9 +271,9 @@ export function Nav({
                 <MenuIcon />
                 <span className="hidden sm:inline">{contents.label}</span>
               </SheetTrigger>
-              <SheetContent style={portal.style} className={cn(portal.className, "smd-toc gap-0")}>
-                <SheetHeader>
-                  <SheetTitle>{contents.label}</SheetTitle>
+              <SheetContent style={contents.style ?? portal.style} className={cn(portal.className, "smd-toc gap-0")}>
+                <SheetHeader className={contents.showTitle === false && !contents.description ? "sr-only" : undefined}>
+                  <SheetTitle className={contents.showTitle === false ? "sr-only" : undefined}>{contents.label}</SheetTitle>
                   <SheetDescription className={contents.description ? undefined : "sr-only"}>
                     {contents.description || "Jump to a part of the page."}
                   </SheetDescription>

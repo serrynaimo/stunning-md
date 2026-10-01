@@ -12,6 +12,8 @@ export type ChatTurn = {
   streaming: boolean
   /** The section being written right now. */
   writing: string | null
+  /** What the reader asked for. */
+  request: string
 }
 
 /** One entry in the conversation, in the order it happened. */
@@ -75,7 +77,7 @@ export function useChatSession(options: { chat?: Chat; classifier?: Classify; do
 
       setBusy(true)
       setItems((all) => [...all, { id: `${turnId}-u`, type: "user", text: request }])
-      setTurns((all) => [...all, { id: turnId, markdown: "", streaming: true, writing: null }])
+      setTurns((all) => [...all, { id: turnId, markdown: "", streaming: true, writing: null, request }])
       onTurnStart?.(turnId)
 
       const messages: ChatMessage[] = [{ role: "system", content: CHAT_INSTRUCTIONS + documentContext(document) }, ...history.current, { role: "user", content: request }]

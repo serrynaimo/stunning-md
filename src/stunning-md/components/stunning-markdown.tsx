@@ -5,12 +5,12 @@ import { cn } from "@/lib/utils"
 import type { Chat } from "../chat"
 import type { Classify } from "../classifier"
 import { chartThemeFor } from "../theme/chart"
-import { themeChoice, themeVars } from "../theme/themes"
+import { fontPairings, googleFontsUrl, themeChoice, themeVars } from "../theme/themes"
 import type { Appearance, DocumentPlan, PaletteId, ThemeChoice, TocEntry } from "../types"
 import { ChatDock, SidebarContents } from "./chat-ui"
 import { StunningProvider, type StunningContext } from "./context"
 import { Nav, Sidebar, scrollToId, useReadingPosition, type View } from "./nav"
-import { TurnView, type TurnReport } from "./turn"
+import { TurnView, useFonts, type TurnReport } from "./turn"
 import { useChatSession } from "./use-chat"
 
 export type StunningMarkdownProps = {
@@ -92,6 +92,9 @@ function useWide(target: React.RefObject<HTMLElement | null>, minWidth: number):
   return wide
 }
 
+/** The look of the chat itself — sidebar and input — whatever the turns are wearing. */
+const CHAT_THEME = themeChoice("ink")
+
 /** The opened document is the first thing on the page; chat turns follow it. */
 const DOCUMENT = "doc"
 
@@ -142,7 +145,7 @@ function Page({
   // The turns on the page, top to bottom. A turn with nothing to show takes no room.
   const turns = useMemo(
     () => [
-      ...(hasDocument ? [{ id: DOCUMENT, prefix: "", markdown, streaming: false, writing: null as string | null }] : []),
+      ...(hasDocument ? [{ id: DOCUMENT, prefix: "", markdown, streaming: false, writing: null as string | null, request: "" }] : []),
       ...session.turns.filter((turn) => turn.streaming || turn.markdown.trim()).map((turn) => ({ ...turn, prefix: `${turn.id}-` })),
     ],
     [hasDocument, markdown, session.turns],
@@ -192,6 +195,10 @@ function Page({
     [activeTurn, reports, palettePicks, fixedTheme],
   )
   const style = useMemo(() => themeVars(theme, appearance), [theme, appearance])
+  // The conversation is not part of any one answer: its sidebar and input keep a
+  // plain look of their own while the turns beside them each wear their theme.
+  const chatStyle = useMemo(() => (chat ? themeVars(CHAT_THEME, appearance) : undefined), [chat, appearance])
+  useFonts(googleFontsUrl(fontPairings[CHAT_THEME.fonts]), loadFonts && !!chat)
   const chartTheme = useMemo(() => chartThemeFor(theme), [theme])
   const context = useMemo<StunningContext>(
     () => ({
@@ -221,6 +228,7 @@ function Page({
   const renderContents = (navigate: (id: string) => void) => (
     <SidebarContents
       document={documentPlan ? { toc: documentPlan.toc, meta } : null}
+      chat={!!chat}
       items={session.items}
       refsOf={refsOf}
       active={position.active}
@@ -279,7 +287,7 @@ function Page({
           <Nav
             title={title}
             crumb={crumb}
-            contents={hasContents ? { label: chat ? "Chat" : "Contents", description: meta, render: renderContents } : null}
+            contents={hasContents ? { label: chat ? "Chat" : "Contents", description: meta, showTitle: !chat, style: chatStyle, render: renderContents } : null}
             root={root}
             bar={position.bar}
             sidebar={sidebar}
@@ -302,6 +310,10 @@ function Page({
                       streaming={turn.streaming}
                       writing={turn.writing}
                       lockTheme={turn.id !== DOCUMENT}
+                      themeContext={turn.request || undefined}
+                      // The newest answer gets a full window to itself, so it can be brought to
+                      // the top as soon as it starts and its content arrives in view.
+                      fill={turn.id !== DOCUMENT && index === turns.length - 1}
                       onReady={turn.id === DOCUMENT ? markReady : undefined}
                       classifier={classifier}
                       fixedTheme={fixedTheme}
@@ -332,6 +344,7 @@ function Page({
                   busy={session.busy}
                   canClear={turns.length > 0 || session.items.length > 0}
                   accessory={chatAccessory}
+                  style={chatStyle}
                   onSend={session.send}
                   onStop={session.stop}
                   onClear={clear}
@@ -339,7 +352,14 @@ function Page({
               )}
             </div>
             {showSidebar && (
-              <Sidebar id={sidebarId} title={chat ? "Chat" : "Contents"} active={position.active} tail={session.items.length}>
+              <Sidebar
+                id={sidebarId}
+                title={chat ? "Chat" : "Contents"}
+                showTitle={!chat}
+                active={position.active}
+                tail={session.items.length}
+                style={chatStyle}
+              >
                 {renderContents(scrollToId)}
               </Sidebar>
             )}

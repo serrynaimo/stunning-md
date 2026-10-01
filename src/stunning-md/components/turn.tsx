@@ -31,6 +31,10 @@ export type TurnViewProps = {
   writing?: string | null
   /** Choose the theme once, from the first content, and keep it as the turn grows. */
   lockTheme?: boolean
+  /** What the turn was written in answer to; it helps the classifier place its subject. */
+  themeContext?: string
+  /** Take up at least a full window, so the turn can be scrolled to the top before it has much in it. */
+  fill?: boolean
   /** Report when the top of the turn has stopped moving, so a page loader can lift. */
   onReady?: () => void
   classifier?: Classify
@@ -53,7 +57,7 @@ export type TurnViewProps = {
  * Loads the theme's typefaces and reports when text set in them has stopped
  * reflowing. Resolves on its own after `capMs`, so a slow font host never holds the page.
  */
-function useFonts(href: string, enabled: boolean, capMs = 1800): boolean {
+export function useFonts(href: string, enabled: boolean, capMs = 1800): boolean {
   const [loaded, setLoaded] = useState<string | null>(null)
   useEffect(() => {
     if (!enabled) return
@@ -109,6 +113,8 @@ export function TurnView({
   streaming = false,
   writing,
   lockTheme = false,
+  themeContext,
+  fill = false,
   onReady,
   classifier,
   fixedTheme,
@@ -174,7 +180,7 @@ export function TurnView({
   // 2. Ask the classifier, once sizes are known, about what rules cannot decide.
   //    Every question is asked straight away, top of the page first, and each
   //    answer is applied as it lands — nothing waits for the reader to scroll.
-  const themeSettled = lockTheme && locked !== null
+  //    A turn that grows asks about its theme separately, once (see below).
   useEffect(() => {
     if (!images || !classifier || !hasText) return
     const abort = new AbortController()
@@ -182,9 +188,9 @@ export function TurnView({
     judgeDocument(structural, prose, classifier, {
       signal: abort.signal,
       themeHint: keywordTheme ?? undefined,
-      skipTheme: themeSettled,
+      skipTheme: lockTheme,
       onProgress: (progress) => {
-        setJudged((previous) => (themeSettled ? { ...progress.judgements, theme: previous?.theme } : progress.judgements))
+        setJudged(progress.judgements)
         setPending(progress.pending)
       },
     }).catch((error) => {
@@ -193,7 +199,7 @@ export function TurnView({
       setPending([])
     })
     return () => abort.abort()
-  }, [images, classifier, parsed, prose, keywordTheme, prefix, hasText, themeSettled])
+  }, [images, classifier, parsed, prose, keywordTheme, prefix, hasText, lockTheme])
 
   const plan = useMemo(
     () =>
@@ -212,20 +218,38 @@ export function TurnView({
   // A theme is a whole look — colours, typefaces and corner style travel together —
   // whether it was guessed from keywords, chosen by the classifier or picked by hand.
   const suggested = useMemo<ThemeChoice>(() => ({ ...themeChoice(keywordTheme ?? "paper"), ...judged?.theme }), [keywordTheme, judged])
-  // A turn that is still being written keeps the look chosen from its opening,
-  // rather than changing its mind with every section that arrives.
-  const themeAnswered = !classifier || (outstanding !== null && !outstanding.includes("theme"))
-  if (lockTheme && !locked && measured && hasText && themeAnswered) setLocked(suggested)
-  // An answer should not sit unseen while a slow classifier makes up its mind:
-  // after a short wait it goes ahead in the theme its own words suggest.
-  const awaitingTheme = lockTheme && !locked && measured && hasText
+  // A turn that is still being written chooses its look once, from its opening,
+  // and keeps it — rather than changing its mind with every section that arrives.
+  // `seed` is that opening: the turn's text when it first had any.
+  const [seed, setSeed] = useState<string | null>(null)
+  if (lockTheme && seed === null && hasText) setSeed(markdown)
+  const seedTheme = useMemo<ThemeChoice | null>(() => {
+    if (seed === null) return null
+    const words = `${toText(parseMarkdown(seed).root)} ${themeContext ?? ""}`
+    return themeChoice(matchTheme(words, { codeBlocks: (seed.match(/^```/gm) ?? []).length / 2, tables: 0 }) ?? "paper")
+  }, [seed, themeContext])
+  // Without a classifier the opening's own words decide.
+  if (lockTheme && !locked && seedTheme && !classifier) setLocked(seedTheme)
   useEffect(() => {
-    if (!awaitingTheme) return
-    const timer = setTimeout(() => setLocked((current) => current ?? suggested), Math.min(maxWaitMs, THEME_PATIENCE))
-    return () => clearTimeout(timer)
-    // `suggested` is read when the timer fires; restarting the wait each time it changes would defeat the cap.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [awaitingTheme, maxWaitMs])
+    if (!lockTheme || seed === null || !seedTheme || !classifier) return
+    let live = true
+    const settle = (choice: ThemeChoice) => live && setLocked((current) => current ?? choice)
+    // An answer should not sit unseen while a slow classifier makes up its mind.
+    const timer = setTimeout(() => settle(seedTheme), Math.min(maxWaitMs, THEME_PATIENCE))
+    const opening = parseMarkdown(seed)
+    judgeDocument(planDocument({ root: opening.root, frontmatter: opening.frontmatter, idPrefix: prefix }), proseOf(opening.root), classifier, {
+      themeOnly: true,
+      themeHint: seedTheme.palette === "paper" ? undefined : seedTheme.palette,
+      context: themeContext,
+    }).then(
+      (judgement) => settle({ ...seedTheme, ...judgement.theme }),
+      () => settle(seedTheme),
+    )
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [lockTheme, seed, seedTheme, classifier, prefix, themeContext, maxWaitMs])
 
   const theme = useMemo<ThemeChoice>(() => {
     const fromFrontmatter = parsed.frontmatter.theme
@@ -293,7 +317,14 @@ export function TurnView({
 
   return (
     <StunningProvider value={context}>
-      <article ref={element} id={`${id}-turn`} className="smd-turn" style={visible ? style : undefined} data-theme={visible ? theme.palette : undefined}>
+      <article
+        ref={element}
+        id={`${id}-turn`}
+        className="smd-turn"
+        style={visible ? style : undefined}
+        data-theme={visible ? theme.palette : undefined}
+        data-fill={fill || undefined}
+      >
         {visible &&
           (view === "source" ? (
             <SourceView value={draft ?? markdown} onChange={editable ? setDraft : undefined} />

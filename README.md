@@ -126,6 +126,8 @@ A model's reply is sorted as it streams, block by block, into two kinds of text:
 - **Content** — the thing that was asked for — is rendered on the page by the usual rules. It appears a section at a time, as each section is completed, so a section's layout is decided once and does not shift. Turns are set apart by a band of bare page, black or white with the mode.
 - **Commentary** — the model talking about its answer ("Sure, here is…", "Let me know if…") — is shown briefly above the input, then fades. It stays in the sidebar, where the whole conversation is kept in order: your messages, the model's remarks, and, in place of each answer, a short list of the headings it put on the page, which jump to them.
 
+Each answer chooses its theme once, from its opening and the request, and keeps it; a new answer starts with a full window to itself, so it can be brought to the top before it is written. The chat's own sidebar and input stay in a plain, neutral look whatever the turns are wearing.
+
 Headings, lists, tables, code and images are always content. A plain paragraph is judged by where it sits and how it reads: remarks come at the start or the end of a reply and usually announce themselves. The classifier is asked about the unclear ones — on its own it is not a reliable judge of this, so it never overrules both position and wording. Without a classifier, the first paragraph of a reply is taken as commentary, and so is the last.
 
 The open document and the conversation so far are sent to the chat model with each request. A button beside the input clears the page — document and conversation — to start again.

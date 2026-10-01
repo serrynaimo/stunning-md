@@ -99,6 +99,10 @@ export type JudgeOptions = {
   themeHint?: PaletteId
   /** Leave the theme question out — for a document whose theme is already settled. */
   skipTheme?: boolean
+  /** Ask the theme question and nothing else. */
+  themeOnly?: boolean
+  /** What the document was written in answer to, if anything — it helps place the subject. */
+  context?: string
   /** Requests in flight at once. Default 3. */
   concurrency?: number
   /** Upper bound on tables sent for a form judgement. */
@@ -153,7 +157,7 @@ export async function judgeDocument(
   if (!options.skipTheme) attempt(
     "theme",
     {
-      state: documentDigest(plan, prose),
+      state: documentDigest(plan, prose) + (options.context ? `\nWritten in answer to: ${options.context.replace(/\s+/g, " ").slice(0, 300)}` : ""),
       questions: { theme: { type: "choice", criteria: Object.fromEntries(themeList.map((t) => [t.id, describeTheme(t)])) } },
     },
     ({ theme }) => {
@@ -174,7 +178,7 @@ export async function judgeDocument(
   )
 
   const image = plan.hero.image
-  if (image) {
+  if (image && !options.themeOnly) {
     attempt(
       "hero",
       {
@@ -210,7 +214,7 @@ export async function judgeDocument(
         .flatMap((block) => (block.kind === "data" ? [{ section, block }] : [])),
     )
     .filter(({ block }) => block.viz.candidates.length > 1)
-    .slice(0, options.maxTables ?? 8)
+    .slice(0, options.themeOnly ? 0 : (options.maxTables ?? 8))
 
   for (const { section, block } of tables) {
     const { columns, rows } = block.table

@@ -65,6 +65,7 @@ export function TocList({
  */
 export function SidebarContents({
   document,
+  chat,
   items,
   refsOf,
   active,
@@ -72,6 +73,8 @@ export function SidebarContents({
   onNavigate,
 }: {
   document: { toc: TocEntry[]; meta: string } | null
+  /** Whether the page takes requests; an empty conversation then says so. */
+  chat: boolean
   items: StreamItem[]
   refsOf: (turnId: string) => TocEntry[]
   active: string | null
@@ -86,6 +89,7 @@ export function SidebarContents({
           <TocList entries={document.toc} active={active} onNavigate={onNavigate} label="Document" />
         </>
       )}
+      {chat && items.length === 0 && <p className="smd-chat-empty">Chat is still empty</p>}
       {items.length > 0 && (
         <ol className="smd-chat" aria-label="Conversation">
           {items.map((item) => {
@@ -133,6 +137,7 @@ export function ChatDock({
   busy,
   canClear,
   accessory,
+  style,
   onSend,
   onStop,
   onClear,
@@ -140,6 +145,8 @@ export function ChatDock({
   notes: ChatNote[]
   busy: boolean
   canClear: boolean
+  /** The look of the chat controls, which does not follow the page's theme. */
+  style?: React.CSSProperties
   /** A control of the host's own, shown as a round button to the left of the input box. */
   accessory?: React.ReactNode
   onSend: (text: string) => void
@@ -163,7 +170,7 @@ export function ChatDock({
   }
 
   return (
-    <div className="smd-chat-dock" data-accessory={accessory ? "" : undefined}>
+    <div className="smd-chat-dock" data-accessory={accessory ? "" : undefined} style={style}>
       <div className="smd-chat-notes" aria-live="polite">
         {notes.map((note) => (
           <div key={note.id} className="smd-chat-note">

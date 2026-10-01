@@ -85,7 +85,8 @@ export function Sidebar({
   /** Whether the name is also shown as a heading. */
   showTitle?: boolean
   active: string | null
-  tail: number
+  /** Changes whenever the conversation gains something; empty while there is none. */
+  tail: string
   /** A look of its own, when the sidebar should not follow the page's theme. */
   style?: React.CSSProperties
   children: React.ReactNode
@@ -102,10 +103,10 @@ export function Sidebar({
     else if (top + current.offsetHeight > box.scrollTop + box.clientHeight - 48) box.scrollTop = top + current.offsetHeight - box.clientHeight + 48
   }, [active])
 
-  // Follow the conversation as it grows.
+  // Follow the conversation as it grows, to the end of each turn.
   useEffect(() => {
     const box = scroller.current
-    if (box && tail > 0) box.scrollTop = box.scrollHeight
+    if (box && tail) box.scrollTop = box.scrollHeight
   }, [tail])
 
   return (
@@ -117,11 +118,11 @@ export function Sidebar({
 }
 
 /** The same contents in the sheet used on narrow screens; it follows the conversation too. */
-function SheetBody({ tail, children }: { tail: number; children: React.ReactNode }) {
+function SheetBody({ tail, children }: { tail: string; children: React.ReactNode }) {
   const scroller = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const box = scroller.current
-    if (box && tail > 0) box.scrollTop = box.scrollHeight
+    if (box && tail) box.scrollTop = box.scrollHeight
   }, [tail])
   return (
     <div ref={scroller} className="smd-toc-body">
@@ -208,8 +209,8 @@ export function Nav({
      * the panel leaves room for it, and the rest of the page is not shut off.
      */
     docked?: boolean
-    /** Grows with the conversation, so the panel can keep its end in view. */
-    tail?: number
+    /** Changes whenever the conversation gains something, so the panel can keep its end in view. */
+    tail?: string
     render: (navigate: (id: string) => void) => React.ReactNode
   } | null
   root: React.RefObject<HTMLElement | null>
@@ -331,7 +332,7 @@ export function Nav({
                     {contents.description || "Jump to a part of the page."}
                   </SheetDescription>
                 </SheetHeader>
-                <SheetBody tail={contents.tail ?? 0}>
+                <SheetBody tail={contents.tail ?? ""}>
                   {contents.render((id) => {
                     menu.onOpenChange(false)
                     // Wait for the sheet to release its scroll lock.

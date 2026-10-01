@@ -246,6 +246,11 @@ function Page({
   const [sheetWanted, setSheetWanted] = useState(false)
   const menu = useMemo(() => ({ open: sheetWanted, onOpenChange: setSheetWanted }), [sheetWanted])
   const showSheet = sheetWanted && hasContents && !sidebar.available
+  // What the conversation's end depends on: its entries, the headings listed for
+  // each answer — which keep arriving after the entry itself — and whether a
+  // reply is still being written.
+  const listed = session.items.reduce((sum, item) => sum + (item.type === "contents" ? refsOf(item.turnId).length : 0), 0)
+  const tail = session.items.length ? `${session.items.length}:${listed}:${session.busy}` : ""
   const meta = documentPlan ? `${documentPlan.readingTime} min read · ${documentPlan.sections.filter((s) => s.titleText).length} sections` : ""
   const renderContents = (navigate: (id: string) => void) => (
     <SidebarContents
@@ -291,7 +296,7 @@ function Page({
       crumb={crumb}
       contents={
         hasContents
-          ? { label: chat ? "Chat" : "Contents", description: meta, showTitle: !chat, style: chatStyle, docked: !!chat, tail: session.items.length, render: renderContents }
+          ? { label: chat ? "Chat" : "Contents", description: meta, showTitle: !chat, style: chatStyle, docked: !!chat, tail, render: renderContents }
           : null
       }
       root={root}
@@ -396,7 +401,7 @@ function Page({
                 title={chat ? "Chat" : "Contents"}
                 showTitle={!chat}
                 active={position.active}
-                tail={session.items.length}
+                tail={tail}
                 style={chatStyle}
               >
                 {renderContents(scrollToId)}

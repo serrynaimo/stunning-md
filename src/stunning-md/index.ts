@@ -32,6 +32,8 @@ export {
   themeVars,
   type Theme,
   type FontPairing,
+  type HeroTone,
+  type PaletteTokens,
 } from "./theme/themes"
 
 export type * from "./types"

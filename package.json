@@ -1,7 +1,7 @@
 {
   "name": "stunning-md",
-  "version": "0.1.0",
-  "description": "Turn any markdown document into a designed, responsive web page.",
+  "version": "0.2.0",
+  "description": "Turn any markdown document — a file, or a model's answer as it streams — into a designed, responsive web page.",
   "keywords": [
     "markdown",
     "react",
@@ -10,7 +10,11 @@
     "charts",
     "themes",
     "shadcn",
-    "remark"
+    "remark",
+    "streaming",
+    "ai",
+    "llm",
+    "chat"
   ],
   "license": "MIT",
   "author": "Thomas Gorissen",

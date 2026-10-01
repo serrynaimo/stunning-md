@@ -8,6 +8,8 @@ Markdown in. A beautifully designed website out.
 
 `stunning-md` is a React component. Give it a markdown string and it lays the document out section by section — from its structure, the size of its images and the shape of its tables — then themes it to suit what it says. A small classifier model can be consulted for the judgement calls structure cannot settle; without one, rules decide everything.
 
+The markdown can be a file, or a model's answer [as it streams in](#streaming-a-models-answer) — and with a chat model attached, the page itself [takes requests](#adding-chat-optional) and lays each answer out as it is written.
+
 **[Try the live demo](https://serrynaimo.github.io/stunning-md/)** with your own file or one of the samples.
 
 ## Install
@@ -116,6 +118,8 @@ When `streaming` goes back to `false`, the rest of the text is laid out and the 
 
 To do the same outside the component, `settledMarkdown(text)` returns the part of a growing text that is ready, and the heading being written. If your model wraps its answer in remarks ("Sure, here is…"), `sortReply` separates those from the content as it streams — that is what the chat below is built on.
 
+It helps to tell the model what it is writing for. `CHAT_INSTRUCTIONS` is a short system prompt that does: answer in markdown with a title and sections, keep remarks to the reader apart from the content, and — since the page draws charts itself — write data as a plain markdown table rather than describing or drawing a chart.
+
 ### Adding chat (optional)
 
 Give the component a chat function and the page takes requests. A floating input at the bottom sends them to any OpenAI-compatible chat model; each answer is laid out below as its own designed section of the page, in a theme chosen for it, while the conversation itself lives in the sidebar.
@@ -154,11 +158,11 @@ A reply that is not an answer — the model does not know, cannot help, or asks 
 
 The conversation sits beside the page on a wide screen and in a sheet on a narrower one. It stays shut until the first reply starts to arrive, then opens by itself where there is room for it; after that the reader's own choice stands. The input is centred on the whole window and floats above the conversation, sheet included, so you can keep writing with the conversation in view — and while it is in view, remarks are not shown a second time above the input.
 
-Each answer chooses its theme once, from its opening and the request, and keeps it; a new answer starts with a full window to itself, so it can be brought to the top before it is written. Until that choice is made the page keeps the chat's own plain, neutral look — the one its sidebar and input wear whatever the turns are wearing.
+Each answer chooses its theme once, from its opening and the request, and keeps it; a new answer starts with a full window to itself, so it can be brought to the top before it is written. Until that choice is made the page keeps the chat's own plain, neutral look — the one its sidebar and input wear whatever the turns are wearing. While nothing has come back yet, the new turn shows the request itself beside a spinner if the conversation is out of view, and "Waiting for first response ..." if it is not.
 
 Headings, lists, tables, code and images are always content. A plain paragraph is judged by where it sits and how it reads: remarks come at the start or the end of a reply and usually announce themselves. The classifier is asked about the unclear ones — on its own it is not a reliable judge of this, so it never overrules both position and wording. Without a classifier, the first paragraph of a reply is taken as commentary, and so is the last.
 
-The open document and the conversation so far are sent to the chat model with each request. A button beside the input clears the page — document and conversation — to start again.
+The open document and the conversation so far are sent to the chat model with each request, after `CHAT_INSTRUCTIONS` as the system prompt. A button beside the input clears the page — document and conversation — to start again.
 
 ### Props
 
@@ -189,7 +193,7 @@ A theme can also be set per document, in frontmatter: `theme: midnight`.
 | Import | Contents | Runs |
 | --- | --- | --- |
 | `stunning-md` | `StunningMarkdown`, `createClassifier`, `createChat`, themes, and everything in `core` | In the browser |
-| `stunning-md/core` | `parseMarkdown`, `planDocument`, table inference, `judgeDocument`, `sortReply`, theme data | Anywhere — no React |
+| `stunning-md/core` | `parseMarkdown`, `planDocument`, table inference, `judgeDocument`, `settledMarkdown`, `sortReply`, `CHAT_INSTRUCTIONS`, theme data | Anywhere — no React |
 | `stunning-md/server` | `createClassifierHandler`, `createChatHandler` | On the server |
 | `stunning-md/styles.css` | All styles for the component | — |
 
@@ -206,7 +210,7 @@ plan.sections.map((s) => [s.titleText, s.layout, s.reason])
 
 | Content | Becomes |
 | --- | --- |
-| Leading `# Title`, short opening paragraphs | Hero with title and lead |
+| Leading `# Title`, short opening paragraphs | Hero with title and lead — on the page, or as a cover in the theme's colour |
 | Leading image, ≥ 1200 px wide and landscape | Full-bleed banner behind the title |
 | Leading image that is small, square or an SVG | Logo above a centred title |
 | Badge images (shields.io and similar) | A badge row in the hero |
@@ -221,7 +225,8 @@ plan.sections.map((s) => [s.titleText, s.layout, s.reason])
 | `> [!NOTE]` and friends | Callouts |
 | Table: periods × measures | Line, area or bar chart |
 | Table: categories × one measure | Bar chart, donut (parts of a whole) or stat tiles |
-| Table: dates × descriptions | Timeline |
+| Table: categories with long names × one measure | Ranked bars, each name on its own line above its bar |
+| Table: dates × descriptions — or descriptions beside a column of years in order | Timeline |
 | Table: short key–value pairs | Fact sheet |
 | Any other table | A table, with horizontal scroll on small screens |
 | Three or more titled sections | Sticky bar with reading progress and a contents list — pinned beside the page when it is at least 1400 px wide, in a slide-over menu otherwise |
@@ -317,7 +322,7 @@ scripts/                  browser checks used during development
 ```
 
 ```bash
-npm test              # parsing, planning, table inference, classifier logic, theme and chart colours
+npm test              # parsing, planning, table inference, classifier logic, chat and streaming, theme and chart colours
 npm run typecheck
 npm run lint
 npm run build         # the demo site
@@ -337,7 +342,7 @@ npm publish                    # runs typecheck, tests and build:lib first
 git push --follow-tags
 ```
 
-`npm pack --dry-run` shows exactly what would be published: `dist/`, this README, the licence and `package.json`.
+`npm pack --dry-run` shows exactly what would be published: `dist/`, this README, the licence and `package.json`. What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Built with
 

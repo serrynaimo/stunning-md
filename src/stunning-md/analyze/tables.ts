@@ -73,7 +73,7 @@ export function parseDate(raw: string): number | null {
 }
 
 const ID_HEADER = /^(#|no\.?|nr\.?|id|rank|pos(ition)?|s\/n|index|ref)$/i
-const TIME_HEADER = /\b(year|date|when|period|month|quarter|fy|time|day|week)\b/i
+const TIME_HEADER = /\b(years?|dates?|when|periods?|months?|quarters?|fy|time|days?|weeks?)\b/i
 const SHARE_HEADER = /\b(share|allocation|mix|breakdown|distribution|portion|weight|split|composition)\b/i
 const SUMMARY_LABEL = /^(grand )?(total|sum|overall|subtotal|average|avg|mean|median|all)\b/i
 
@@ -257,6 +257,24 @@ export function planViz(model: TableModel): VizPlan {
       }
     }
     return table("no label column")
+  }
+
+  // A lone column of bare years, in order, beside descriptions is a sequence of
+  // events. Drawn as bars it would compare the years as if they were amounts.
+  if (!dateColumn && numeric.length === 1 && label.type === "text" && rows.length >= 3 && avgLength(label) >= 16) {
+    const years = rows.map((row) => (/^\d{4}$/.test(row.text[numeric[0].key]) ? (row.value[numeric[0].key] as number) : NaN))
+    const plausible = years.every((year) => year >= 1000 && year <= 2100)
+    const ordered = years.every((year, i) => i === 0 || year >= years[i - 1]) || years.every((year, i) => i === 0 || year <= years[i - 1])
+    if (plausible && ordered) {
+      return {
+        kind: "timeline",
+        labelKey: numeric[0].key,
+        charts: [],
+        rowIndices: all,
+        candidates: ["timeline", "table"],
+        reason: "years in order beside descriptions",
+      }
+    }
   }
 
   // Records with as much description as measurement read better as a table.

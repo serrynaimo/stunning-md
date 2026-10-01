@@ -216,6 +216,21 @@
   font-size: 0.9375rem;
   color: var(--muted-foreground);
 }
+/* A request waiting for its answer, shown on the page while the conversation is out of view. */
+.smd-asked {
+  max-width: min(100%, 34rem);
+  padding: 0.45rem 0.85rem;
+  border: 1px solid color-mix(in oklab, var(--foreground) 22%, transparent);
+  border-radius: 1.1rem 1.1rem 1.1rem 0.3rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  transition: opacity 0.4s ease;
+}
+/* The answer has begun: the request gives way to it. */
+.smd-asked[data-leaving] {
+  opacity: 0;
+}
 .smd-writing .smd-loader-mark {
   flex: none;
   width: 1.25rem;
@@ -464,6 +479,10 @@
   color: var(--primary-foreground);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+/* A new request starts a new exchange: set it apart from the reply before it. */
+.smd-chat > .smd-chat-user:not(:first-child) {
+  margin-top: 1rem;
 }
 .smd-chat-remark {
   max-width: 96%;
@@ -1356,6 +1375,68 @@ img.smd-frame {
 /* The plot's corner caption names the first series only — wrong once there are several. */
 .smd-chart[data-multi] .ck-axis-title {
   display: none;
+}
+/* Ranked bars whose names are too long for a plot's label gutter: name above, bar below. */
+.smd-barlist {
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+.smd-barlist-rows {
+  display: grid;
+  gap: 0.9rem;
+}
+.smd-barlist-caption,
+.smd-barlist-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1.5rem;
+}
+.smd-barlist-caption {
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.smd-barlist-row > :first-child {
+  min-width: 0;
+  text-wrap: pretty;
+}
+.smd-barlist-value {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.smd-barlist-track {
+  height: 0.5rem;
+  margin-top: 0.4rem;
+  border-radius: var(--smd-bar-radius);
+  background: color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+.smd-barlist-track > div {
+  height: 100%;
+  min-width: 2px;
+  border-radius: inherit;
+  background: var(--smd-bar);
+}
+.smd-barlist-track > div[data-negative] {
+  background: var(--smd-bar-negative);
+}
+/* Linework themes draw in ink: an outlined bar, as in their plots. */
+.smd-barlist[data-style="linework"] .smd-barlist-track {
+  background: none;
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 28%, transparent);
+}
+.smd-barlist[data-style="linework"] .smd-barlist-track > div {
+  background: none;
+  border: 1px solid var(--foreground);
+  border-bottom: 0;
+}
+.smd-barlist[data-style="linework"] .smd-barlist-track > div[data-negative] {
+  border-style: dashed;
 }
 .smd-table-scroll {
   overflow-x: auto;

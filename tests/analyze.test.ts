@@ -118,6 +118,33 @@ describe("planViz", () => {
   })
 })
 
+describe("years beside descriptions", () => {
+  const events = ["Born in Novo Mesto, Slovenia | 1970", "Studied design and architecture | 1988", "Worked in Milan and Vienna | 1992", "Became a U.S. citizen | 2006"]
+  const rows = (lines: string[]) => lines.map((line) => `| ${line} |`).join("\n")
+
+  it("reads a lone column of years in order as a timeline, not as amounts", () => {
+    const { viz, model } = table(`| Milestone | Yr |\n|-|-|\n${rows(events)}`)
+    expect(viz.kind).toBe("timeline")
+    expect(model.columns.find((c) => c.key === viz.labelKey)?.label).toBe("Yr")
+  })
+
+  it("takes a plural time heading as a time axis", () => {
+    const { viz } = table(`| Milestone | Years |\n|-|-|\n${rows(events)}`)
+    expect(viz.kind).toBe("timeline")
+  })
+
+  it("still charts four-digit amounts beside short names", () => {
+    const { viz } = table("| Plan | Seats |\n|-|-|\n| Starter | 1000 |\n| Team | 1500 |\n| Business | 1800 |\n| Scale | 2000 |\n| Enterprise | 2100 |")
+    expect(viz.kind).toBe("bar")
+  })
+
+  it("still charts four-digit amounts that are not in order", () => {
+    const { viz } = table(`| Programme | Places |\n|-|-|\n${rows(["Community health outreach clinics | 1850", "Rural road maintenance crews | 1200", "Teacher training placements | 2050", "Small business mentoring | 1400", "Library reading groups | 1990"])}`)
+    expect(viz.kind).toBe("bar")
+    expect(viz.horizontal).toBe(true)
+  })
+})
+
 describe("planDocument", () => {
   it("lifts the title, lead and logo into the hero", () => {
     const doc = plan(sample("readme"), { "logo.svg": { width: 240, height: 240 } })

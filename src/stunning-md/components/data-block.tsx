@@ -67,6 +67,53 @@ export function DataTable({ table, dense }: { table: TableModel; dense?: boolean
   )
 }
 
+/** The most characters a category name can have and still fit beside a horizontal bar in the chart library's plot. */
+const AXIS_LABEL_FITS = 16
+
+/**
+ * Ranked bars for categories with long names. A plot has a fixed gutter for
+ * its labels and cuts off what does not fit; here each name gets the full
+ * width above its bar, and wraps.
+ */
+function BarList({ table, viz, spec }: { table: TableModel; viz: VizPlan; spec: ChartSpec }) {
+  const { chartTheme, appearance } = useStunning()
+  const tokens = chartTheme.modes[appearance]
+  const measure = table.columns.find((c) => c.key === spec.seriesKeys[0])!
+  const labelIndex = table.columns.findIndex((c) => c.key === viz.labelKey)
+  const values = viz.rowIndices.map((r) => table.rows[r].value[measure.key] as number | null)
+  const peak = Math.max(0, ...values.map((v) => Math.abs(v ?? 0)))
+  const style = {
+    "--smd-bar": tokens.palette[0],
+    "--smd-bar-negative": tokens.negative,
+    "--smd-bar-radius": `${tokens.markRadius}px`,
+  } as React.CSSProperties
+  return (
+    <div className="smd-barlist" style={style} data-style={chartTheme.id === "mono-editorial" ? "linework" : undefined}>
+      <p className="smd-barlist-caption">
+        <span>{table.columns[labelIndex]?.label}</span>
+        <span>{measure.label}</span>
+      </p>
+      {/* Not a list element: the document's own list styling — numbers, markers — has no place here. */}
+      <div className="smd-barlist-rows" role="list">
+        {viz.rowIndices.map((r, i) => {
+          const value = values[i]
+          return (
+            <div key={r} role="listitem">
+              <div className="smd-barlist-row">
+                <span>{labelIndex >= 0 ? <Inline nodes={table.rows[r].cells[labelIndex]} /> : String(r + 1)}</span>
+                <span className="smd-barlist-value">{value == null ? "—" : formatValue(value, spec.unit)}</span>
+              </div>
+              <div className="smd-barlist-track" aria-hidden>
+                {value != null && peak > 0 && <div data-negative={value < 0 || undefined} style={{ width: `${(Math.abs(value) / peak) * 100}%` }} />}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function Chart({ table, viz, spec, titled }: { table: TableModel; viz: VizPlan; spec: ChartSpec; titled: boolean }) {
   const { chartTheme, appearance } = useStunning()
   const columnOf = (key: string) => table.columns.find((c) => c.key === key)!
@@ -101,6 +148,9 @@ function Chart({ table, viz, spec, titled }: { table: TableModel; viz: VizPlan; 
     case "scatter":
       return <ScatterChart {...common} xKey="x" series={series} height={360} />
     default:
+      if (viz.horizontal && series.length === 1 && data.some((datum) => String(datum.label).length > AXIS_LABEL_FITS)) {
+        return <BarList table={table} viz={viz} spec={spec} />
+      }
       return (
         <BarChart
           {...common}

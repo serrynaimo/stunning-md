@@ -350,6 +350,8 @@ function Page({
                       markdown={turn.markdown}
                       streaming={turn.streaming}
                       waiting={turn.waiting}
+                      // With the conversation out of view, the turn itself shows what was asked.
+                      asked={showSidebar || showSheet ? undefined : turn.request || undefined}
                       writing={turn.writing}
                       lockTheme={turn.id !== DOCUMENT}
                       themeContext={turn.request || undefined}

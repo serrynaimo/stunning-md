@@ -29,6 +29,11 @@ export type TurnViewProps = {
   streaming?: boolean
   /** Nothing has come back from the model yet. */
   waiting?: boolean
+  /**
+   * What was asked, shown as a chat bubble while `waiting` — for when the
+   * conversation, where it would otherwise be seen, is not in view.
+   */
+  asked?: string
   /** The section being written, shown while `streaming`. */
   writing?: string | null
   /** Choose the theme once, from the first content, and keep it as the turn grows. */
@@ -100,6 +105,9 @@ const NONE: string[] = []
 /** Longest a chat answer waits for the classifier's choice of theme before going ahead, in ms. */
 const THEME_PATIENCE = 5000
 
+/** How long the request shown in place of an answer takes to fade once the answer starts, in ms. */
+const ASKED_FADE = 450
+
 /** How far down the page counts as "the first sections", in viewport heights. */
 const FIRST_SCREENS = 2
 
@@ -114,6 +122,7 @@ export function TurnView({
   markdown: given,
   streaming = false,
   waiting = false,
+  asked,
   writing,
   lockTheme = false,
   themeContext,
@@ -301,6 +310,17 @@ export function TurnView({
     onReport(id, { plan, theme: themed ? theme : null })
   }, [id, plan, theme, themed, onReport])
 
+  // The request stands in for the answer until the first of it arrives, then fades away.
+  const pendingRequest = streaming && waiting && asked ? asked : null
+  const [bubble, setBubble] = useState<{ text: string; leaving: boolean } | null>(null)
+  if (pendingRequest && (bubble?.text !== pendingRequest || bubble.leaving)) setBubble({ text: pendingRequest, leaving: false })
+  else if (!pendingRequest && bubble && !bubble.leaving) setBubble({ ...bubble, leaving: true })
+  useEffect(() => {
+    if (!bubble?.leaving) return
+    const timer = setTimeout(() => setBubble(null), ASKED_FADE)
+    return () => clearTimeout(timer)
+  }, [bubble])
+
   const style = useMemo(() => themeVars(theme, appearance), [theme, appearance])
   const chartTheme = useMemo(() => chartThemeFor(theme), [theme])
   const setLayout = useCallback((section: string, layout: SectionLayout) => setLayouts((prev) => ({ ...prev, [section]: layout })), [])
@@ -348,10 +368,17 @@ export function TurnView({
             </>
           ))}
         {streaming && (
-          <p className="smd-writing" role="status">
+          <div className="smd-writing" role="status">
             <span className="smd-loader-mark" aria-hidden />
-            {waiting ? "Waiting for first response ..." : writing ? `Writing “${writing}” ...` : "Stunnifying ..."}
-          </p>
+            {bubble ? (
+              <p className="smd-asked" data-leaving={bubble.leaving || undefined}>
+                <span className="sr-only">Waiting for a response to: </span>
+                {bubble.text}
+              </p>
+            ) : (
+              <p>{waiting ? "Waiting for first response ..." : writing ? `Writing “${writing}” ...` : "Stunnifying ..."}</p>
+            )}
+          </div>
         )}
       </article>
     </StunningProvider>

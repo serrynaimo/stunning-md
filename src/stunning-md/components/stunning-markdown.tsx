@@ -260,6 +260,22 @@ function Page({
   const ready = !hasDocument || documentReady
   const markReady = useCallback(() => setDocumentReady(true), [])
 
+  const nav = (
+    <Nav
+      scoped={!!chat}
+      title={title}
+      crumb={crumb}
+      contents={hasContents ? { label: chat ? "Chat" : "Contents", description: meta, showTitle: !chat, style: chatStyle, render: renderContents } : null}
+      root={root}
+      bar={position.bar}
+      sidebar={sidebar}
+      view={view}
+      onView={setView}
+      onPalette={(palette) => setPalettePicks((all) => ({ ...all, [activeTurn ?? ""]: palette }))}
+      onAppearance={setAppearancePick}
+    />
+  )
+
   return (
     <StunningProvider value={context}>
       <div
@@ -284,20 +300,11 @@ function Page({
           <a href={`#${turns[0] ? `${turns[0].id}-turn` : "smd-main"}`} className="smd-skip">
             Skip to content
           </a>
-          <Nav
-            title={title}
-            crumb={crumb}
-            contents={hasContents ? { label: chat ? "Chat" : "Contents", description: meta, showTitle: !chat, style: chatStyle, render: renderContents } : null}
-            root={root}
-            bar={position.bar}
-            sidebar={sidebar}
-            view={view}
-            onView={setView}
-            onPalette={(palette) => setPalettePicks((all) => ({ ...all, [activeTurn ?? ""]: palette }))}
-            onAppearance={setAppearancePick}
-          />
+          {!chat && nav}
           <div className="smd-body" data-sidebar={showSidebar || undefined}>
             <div className="smd-content">
+              {/* With chat, the bar belongs to the page; the conversation runs the full height beside both. */}
+              {chat && nav}
               <main id="smd-main">
                 {turns.map((turn, index) => (
                   <div key={turn.id} className="smd-turn-slot">

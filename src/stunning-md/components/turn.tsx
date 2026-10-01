@@ -324,6 +324,8 @@ export function TurnView({
         style={visible ? style : undefined}
         data-theme={visible ? theme.palette : undefined}
         data-fill={fill || undefined}
+        // A turn that is written while you watch brings each new part in gently.
+        data-grows={lockTheme || undefined}
       >
         {visible &&
           (view === "source" ? (

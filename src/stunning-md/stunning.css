@@ -177,6 +177,15 @@
   flex-direction: column;
 }
 
+/* With chat, the conversation runs the full height of the window and the bar sits over the page alone. */
+.smd[data-chat] .smd-content {
+  min-height: 100svh;
+}
+.smd[data-chat] .smd-sidebar {
+  top: 0;
+  height: 100svh;
+}
+
 /* --- Turns: several documents on one page ------------------------------------
  * The opened file and each chat answer are documents in their own right, each
  * in its own theme, set apart by a band of bare page. */
@@ -1785,6 +1794,20 @@ img.smd-frame {
   }
   .smd[data-ready="true"] .smd-hero-text > :nth-child(n + 4) {
     animation-delay: 0.2s;
+  }
+}
+/* Parts of an answer arrive while you watch: each rises into place as it is added. */
+@media (prefers-reduced-motion: no-preference) {
+  .smd-turn[data-grows] > .smd-hero,
+  .smd-turn[data-grows] > .smd-sections > .smd-section,
+  .smd-turn[data-grows] > :where(.smd-plain, .smd-source) {
+    animation: smd-arrive 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+}
+@keyframes smd-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(2rem);
   }
 }
 @keyframes smd-rise {

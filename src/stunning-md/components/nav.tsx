@@ -164,6 +164,7 @@ export function Nav({
   root,
   bar,
   sidebar,
+  scoped = false,
   view,
   onView,
   onPalette,
@@ -186,6 +187,8 @@ export function Nav({
   root: React.RefObject<HTMLElement | null>
   bar: React.RefObject<HTMLDivElement | null>
   sidebar: SidebarState
+  /** The bar sits above the page only, with the sidebar running the full height beside it. */
+  scoped?: boolean
   view: View
   onView: (view: View) => void
   onPalette: (palette: PaletteId) => void
@@ -197,7 +200,7 @@ export function Nav({
   if (!contents && !controls) return null
 
   return (
-    <nav className="smd-nav" aria-label="Document" data-sidebar={(sidebar.available && sidebar.open) || undefined}>
+    <nav className="smd-nav" aria-label="Document" data-sidebar={(!scoped && sidebar.available && sidebar.open) || undefined}>
       <div className="smd-container flex h-12 items-center gap-2">
         {title && (
           <a

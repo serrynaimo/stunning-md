@@ -145,6 +145,23 @@ describe("years beside descriptions", () => {
   })
 })
 
+describe("horizontal rules", () => {
+  const flat = (blocks: Block[]): Block[] => blocks.flatMap((block) => (block.kind === "cards" ? block.items.flatMap((item) => flat(item.blocks)) : [block]))
+  const rules = (markdown: string) => flat(plan(markdown).sections.flatMap((section) => section.blocks)).filter((block) => block.kind === "rule").length
+
+  it("keeps a rule that separates two pieces of content", () => {
+    expect(rules("# T\n\nLead.\n\n## A\n\nOne.\n\n---\n\nTwo.")).toBe(1)
+  })
+
+  it("drops a rule at the end or start of a section, where the layout draws its own line", () => {
+    expect(rules("# T\n\nLead.\n\n## A\n\nOne.\n\n---\n\n## B\n\n---\n\nTwo.\n\n---")).toBe(0)
+  })
+
+  it("drops a rule beside a sub-heading, and at the foot of a card", () => {
+    expect(rules("# T\n\nLead.\n\n## Options\n\n### Slow\n\nPour slowly.\n\n---\n\n### Fast\n\nPour fast.\n\n---\n\n### Iced\n\nOver ice.\n\n---")).toBe(0)
+  })
+})
+
 describe("planDocument", () => {
   it("lifts the title, lead and logo into the hero", () => {
     const doc = plan(sample("readme"), { "logo.svg": { width: 240, height: 240 } })

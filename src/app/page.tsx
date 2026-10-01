@@ -234,7 +234,10 @@ export default function Home() {
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center gap-10 px-5 py-16 sm:px-8">
       <header className="flex flex-col gap-4">
         <p className="font-mono text-sm text-muted-foreground">stunning-md</p>
-        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-6xl">Markdown in. A beautifully designed website out.</h1>
+        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
+          Markdown in.
+          <br />A beautifully designed website out.
+        </h1>
         <p className="max-w-2xl text-lg text-pretty text-muted-foreground">
           Open a markdown file and it is laid out section by section — from its structure, the size of its images and the
           shape of its tables — then themed to suit what it says.

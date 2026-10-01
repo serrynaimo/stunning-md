@@ -198,7 +198,11 @@ function buildBlocks(nodes: RootContent[], ctx: Context, sectionId: string): Blo
         blocks.push({ kind: "content", node })
     }
   }
-  return blocks
+  // A rule earns its place only between two pieces of content. At the start or
+  // end of a section or card — where the layout draws its own line — or beside
+  // a heading, which is a break already, it is one line too many.
+  const breaks = (block?: Block) => !block || block.kind === "rule" || block.kind === "heading"
+  return blocks.filter((block, index) => block.kind !== "rule" || !(breaks(blocks[index - 1]) || breaks(blocks[index + 1])))
 }
 
 type RawSection = { heading?: Heading; nodes: RootContent[] }

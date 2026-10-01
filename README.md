@@ -92,7 +92,7 @@ export function Document({ markdown }: { markdown: string }) {
 
 Any endpoint that accepts `{ state, questions }` with `choice`, `noul` and `score` question types and returns `{ answers }` will work, and `classifier` can be any function of the `Classify` type if you would rather call something else.
 
-What is sent: the title, section headings and the first 400 characters of prose; up to eight tables (header and first twelve rows each); and the leading image's alt text, file name and dimensions. The full document is never sent.
+What is sent: the title, section headings and the first 400 characters of prose; up to eight tables (header and first twelve rows each); and the leading image's alt text, file name and dimensions. The full document is never sent. With chat (below), the reader's message and single paragraphs of the model's reply are sent as well — up to a few hundred characters each — to tell conversation from content.
 
 ### Streaming a model's answer
 
@@ -160,7 +160,7 @@ Likewise, a reply that is not an answer — the model does not know, cannot help
 
 The conversation sits beside the page on a wide screen and in a sheet on a narrower one. It stays shut until the first reply starts to arrive, then opens by itself where there is room for it; after that the reader's own choice stands. The input is centred on the whole window and floats above the conversation, sheet included, so you can keep writing with the conversation in view — and while it is in view, remarks are not shown a second time above the input.
 
-Each answer chooses its theme once, from its opening and the request, and keeps it; a new answer starts with a full window to itself, so it can be brought to the top before it is written. Until that choice is made the page keeps the chat's own plain, neutral look — the one its sidebar and input wear whatever the turns are wearing. While nothing has come back yet, the new turn shows the request itself beside a spinner; it fades as the answer starts.
+Each answer chooses its theme once, from its opening and the request, and keeps it; a new answer starts with a full window to itself, so it can be brought to the top before it is written. Until that choice is made the page keeps the chat's own plain, neutral look — the one its sidebar and input wear whatever the turns are wearing. While nothing has come back yet, the new turn shows the request itself beside a spinner; it fades as the answer starts, and the spinner stays until the turn is done. On a page with nothing on it yet, the request is shown this way at once, whatever kind of message it turns out to be.
 
 Headings, lists, tables, code and images are always content. A plain paragraph is judged by where it sits and how it reads: remarks come at the start or the end of a reply and usually announce themselves. The classifier is asked about the unclear ones — on its own it is not a reliable judge of this, so it never overrules both position and wording. Without a classifier, the first paragraph of a reply is taken as commentary, and so is the last.
 
@@ -197,7 +197,7 @@ To keep your own look throughout, switch the choosing off: `<StunningMarkdown ma
 | Import | Contents | Runs |
 | --- | --- | --- |
 | `stunning-md` | `StunningMarkdown`, `createClassifier`, `createChat`, themes, and everything in `core` | In the browser |
-| `stunning-md/core` | `parseMarkdown`, `planDocument`, table inference, `judgeDocument`, `settledMarkdown`, `sortReply`, `CHAT_INSTRUCTIONS`, theme data | Anywhere — no React |
+| `stunning-md/core` | `parseMarkdown`, `planDocument`, table inference, `judgeDocument`, `settledMarkdown`, `sortReply`, `wantsContent`, `CHAT_INSTRUCTIONS`, theme data | Anywhere — no React |
 | `stunning-md/server` | `createClassifierHandler`, `createChatHandler` | On the server |
 | `stunning-md/styles.css` | All styles for the component | — |
 
@@ -241,7 +241,7 @@ The rest of markdown works as you would expect: GFM tables, task lists, striketh
 
 A hero is only built when there is something to build it from: a title, or a leading image large or logo-like enough to carry one. A document that opens with plain paragraphs simply starts with its text.
 
-Readers stay in control. A three-position switch in the top bar moves between the markdown text, a plain conventional rendering, and the designed page; with `editable`, the text can be changed there and is laid out afresh on switching back. A theme picker and light/dark switch sit beside it, each section has a `⋯` menu offering only the layouts its content can fill, and each chart can be switched between the forms its data supports. `controls={false}` hides all of these.
+Readers stay in control. A three-position switch in the top bar moves between the markdown text, a plain conventional rendering, and the designed page; with `editable`, the text can be changed there and is laid out afresh on switching back. A theme picker — arranged by subject, with a switch for whether themes should match the content at all — and a light/dark switch sit beside it, each section has a `⋯` menu offering only the layouts its content can fill, and each chart can be switched between the forms its data supports. `controls={false}` hides all of these.
 
 ## How decisions are made
 

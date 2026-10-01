@@ -31,7 +31,7 @@ export type TurnViewProps = {
   waiting?: boolean
   /**
    * Not known to be writing anything for the page — the reply may be conversation
-   * alone. The request is still shown while `waiting`, but no progress after it.
+   * alone. The request is still shown while `waiting`, then the spinner alone.
    */
   idle?: boolean
   /** What was asked, shown as a chat bubble while `waiting`. */
@@ -398,14 +398,18 @@ export function TurnView({
             </>
           ))}
         {/* Shown while the turn is being written — and after, if what was written is still waiting for its look. */}
-        {((streaming && (bubble || !idle)) || (hasText && !visible)) && (
+        {(streaming || (hasText && !visible)) && (
           <div className="smd-writing" role="status">
+            {/* The spinner stays where it is from the first moment to the last; only what stands beside it changes. */}
             <span className="smd-loader-mark" aria-hidden />
             {bubble ? (
               <p className="smd-asked" data-leaving={bubble.leaving || undefined}>
                 <span className="sr-only">Waiting for a response to: </span>
                 <span>{bubble.text}</span>
               </p>
+            ) : idle && streaming ? (
+              // Nothing is known to be on its way to the page, so there is no progress to name.
+              <span className="sr-only">Waiting for the reply</span>
             ) : (
               <p>{waiting ? "Waiting for first response ..." : writing ? `Writing “${writing}” ...` : "Stunnifying ..."}</p>
             )}

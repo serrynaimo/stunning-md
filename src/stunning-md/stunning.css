@@ -7,6 +7,13 @@
  * a wide desktop without breakpoints for type.
  */
 
+/* The width of the column the sidebar sits in — registered, so that it can be animated. */
+@property --smd-side {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 /*
  * A reset confined to the component and its popovers, so it renders the same
  * whether or not the host page has one of its own.
@@ -145,7 +152,8 @@
 }
 .smd-progress > div {
   height: 100%;
-  background: var(--primary);
+  /* In the theme's second colour, where it has one. */
+  background: var(--smd-highlight, var(--primary));
   transform-origin: left;
   transform: scaleX(0);
 }
@@ -157,10 +165,35 @@
   margin: 0;
 }
 
-/* On a wide screen the contents sit beside the document, pinned under the bar. */
+/* On a wide screen the contents sit beside the document, pinned under the bar.
+   The column they sit in opens and closes: its width is a registered length, so
+   it can be animated — and so can everything measured against it. */
 .smd-body[data-sidebar] {
+  --smd-side: 0px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--smd-sidebar-w);
+  grid-template-columns: minmax(0, 1fr) var(--smd-side);
+  /* Shut, the sidebar stands outside the page's right edge and must not widen it. */
+  overflow-x: clip;
+  transition: --smd-side 0.38s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.smd-body[data-sidebar="open"] {
+  --smd-side: var(--smd-sidebar-w);
+}
+/* It keeps its full width throughout, so nothing in it reflows as it is revealed. */
+.smd-body[data-sidebar] > .smd-sidebar {
+  width: var(--smd-sidebar-w);
+}
+.smd-body[data-sidebar="closed"] > .smd-sidebar {
+  visibility: hidden;
+  transition: visibility 0s 0.38s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .smd-body[data-sidebar] {
+    transition: none;
+  }
+  .smd-body[data-sidebar="closed"] > .smd-sidebar {
+    transition: none;
+  }
 }
 .smd-content {
   min-width: 0;
@@ -220,9 +253,15 @@
   color: var(--muted-foreground);
 }
 /* A request waiting for its answer, shown on the page while the conversation is out of view. */
-/* A status line sits level with the spinner… */
+/* A status line sits level with the spinner, and eases in where the request faded out… */
 .smd-writing > p:not(.smd-asked) {
   line-height: var(--smd-spinner);
+  animation: smd-status-in 0.3s ease both;
+}
+@keyframes smd-status-in {
+  from {
+    opacity: 0;
+  }
 }
 /* …and so does the first line of a request, however many lines follow it. */
 .smd-asked {
@@ -296,7 +335,7 @@
 }
 /* Centred on the whole page: with the conversation beside it, the input reaches over the sidebar. */
 .smd-body[data-sidebar] .smd-chat-dock {
-  width: calc(100% + var(--smd-sidebar-w));
+  width: calc(100% + var(--smd-side));
 }
 /* And over the sheet that holds the conversation on a narrower screen. */
 .smd-chat-dock[data-over] {
@@ -744,7 +783,7 @@
 .smd-hero[data-tone="block"] {
   --background: var(--smd-accent);
   --foreground: var(--smd-accent-fg);
-  --muted-foreground: color-mix(in oklab, var(--smd-accent-fg) 84%, var(--smd-accent));
+  --muted-foreground: color-mix(in oklab, var(--smd-accent-fg) 93%, var(--smd-accent));
   --primary: var(--smd-accent-fg);
   --primary-foreground: var(--smd-accent);
   --border: color-mix(in oklab, var(--smd-accent-fg) 30%, var(--smd-accent));
@@ -753,7 +792,7 @@
 .smd-hero[data-tone="ink"] {
   --background: var(--smd-fg);
   --foreground: var(--smd-bg);
-  --muted-foreground: color-mix(in oklab, var(--smd-bg) 80%, var(--smd-fg));
+  --muted-foreground: color-mix(in oklab, var(--smd-bg) 90%, var(--smd-fg));
   --primary: var(--smd-hero-accent);
   --primary-foreground: var(--smd-fg);
   --border: color-mix(in oklab, var(--smd-bg) 26%, var(--smd-fg));
@@ -762,7 +801,7 @@
 .smd.dark .smd-hero[data-tone="ink"] {
   --background: color-mix(in oklab, var(--smd-accent) 30%, var(--smd-bg));
   --foreground: var(--smd-fg);
-  --muted-foreground: color-mix(in oklab, var(--smd-fg) 80%, var(--background));
+  --muted-foreground: color-mix(in oklab, var(--smd-fg) 90%, var(--background));
   --primary: var(--smd-accent);
   --primary-foreground: var(--smd-bg);
   --border: color-mix(in oklab, var(--smd-fg) 22%, var(--background));
@@ -864,7 +903,7 @@
 .smd-section[data-tone="invert"] {
   --background: var(--smd-fg);
   --foreground: var(--smd-bg);
-  --muted-foreground: color-mix(in oklab, var(--smd-bg) 72%, var(--smd-fg));
+  --muted-foreground: color-mix(in oklab, var(--smd-bg) 86%, var(--smd-fg));
   --border: color-mix(in oklab, var(--smd-bg) 22%, var(--smd-fg));
   --primary: color-mix(in oklab, var(--smd-accent) 45%, var(--smd-bg));
   background: var(--background);
@@ -876,7 +915,7 @@
 .smd-turn[data-highlight] .smd-flow .smd-pull {
   --background: var(--smd-highlight);
   --foreground: var(--smd-highlight-fg);
-  --muted-foreground: color-mix(in oklab, var(--smd-highlight-fg) 80%, var(--smd-highlight));
+  --muted-foreground: color-mix(in oklab, var(--smd-highlight-fg) 90%, var(--smd-highlight));
   --border: color-mix(in oklab, var(--smd-highlight-fg) 26%, var(--smd-highlight));
   --primary: var(--smd-highlight-fg);
   background: var(--background);
@@ -892,6 +931,29 @@
 /* In its own section the band is already the block. */
 .smd-turn[data-highlight] .smd-section[data-layout="quote"] .smd-pull {
   background: none;
+}
+/* A second colour that turned up once, on one quotation, would look like a
+   mistake. So it runs through the page in small things as well: a stripe under
+   the cover, and a short rule over the title and over every section heading. */
+.smd-turn[data-highlight] .smd-hero:is([data-tone="block"], [data-tone="ink"]) {
+  border-bottom: clamp(0.375rem, 0.8vw, 0.625rem) solid var(--smd-highlight);
+}
+.smd-turn[data-highlight] .smd-hero[data-tone="wash"] .smd-display::before,
+.smd-turn[data-highlight] .smd-section:not([data-tone="invert"], [data-layout="fullbleed"]) .smd-h2::before {
+  content: "";
+  display: block;
+  width: 2.75rem;
+  height: 0.3125rem;
+  margin-bottom: 0.55em;
+  border-radius: calc(var(--radius) * 0.4);
+  background: var(--smd-highlight);
+}
+.smd-turn[data-highlight] .smd-hero[data-tone="wash"] .smd-display::before {
+  width: 4rem;
+  height: 0.4375rem;
+}
+.smd-turn[data-highlight] .smd-center > .smd-h2::before {
+  margin-inline: auto;
 }
 
 .smd-section-menu {

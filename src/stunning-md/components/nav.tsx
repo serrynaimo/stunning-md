@@ -78,6 +78,7 @@ export function Sidebar({
   active,
   tail,
   style,
+  hidden = false,
   children,
 }: {
   id: string
@@ -90,6 +91,8 @@ export function Sidebar({
   tail: string
   /** A look of its own, when the sidebar should not follow the page's theme. */
   style?: React.CSSProperties
+  /** Shut: still in the page, so it can slide open, but out of reach. */
+  hidden?: boolean
   children: React.ReactNode
 }) {
   const scroller = useRef<HTMLElement>(null)
@@ -111,7 +114,7 @@ export function Sidebar({
   }, [tail])
 
   return (
-    <nav ref={scroller} id={id} className="smd-sidebar" aria-label={title} style={style}>
+    <nav ref={scroller} id={id} className="smd-sidebar" aria-label={title} style={style} inert={hidden} aria-hidden={hidden || undefined}>
       {showTitle && <p className="smd-sidebar-title">{title}</p>}
       {children}
     </nav>

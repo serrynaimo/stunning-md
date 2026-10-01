@@ -27,7 +27,18 @@ it("every theme is legible in both modes", () => {
   expect(bad).toEqual([])
 })
 
+it("secondary text is strong enough to carry a lead paragraph", () => {
+  const weak = themeList
+    .flatMap((theme) => (["light", "dark"] as const).map((mode) => [theme.id, mode, Math.min(contrast(theme[mode].muted, theme[mode].bg), contrast(theme[mode].muted, theme[mode].surface))] as const))
+    .filter(([, , value]) => value < 7)
+    .map(([id, mode, value]) => `${id} ${mode} ${value.toFixed(2)}`)
+  expect(weak).toEqual([])
+})
+
 it("a cover's text is legible too", () => {
+  // The cover is the accent itself with the accent's own text colour on it.
+  const soft = themeList.filter((theme) => theme.hero === "block").flatMap((theme) => (["light", "dark"] as const).filter((mode) => contrast(theme[mode].accentFg, theme[mode].accent) < 6.5).map((mode) => `${theme.id} ${mode}`))
+  expect(soft).toEqual([])
   const bad: string[] = []
   for (const theme of themeList) {
     // A reversed cover sets the page's colours the other way round, and its small print in the other mode's accent.
@@ -50,10 +61,11 @@ it("a theme's second colour carries its text and is not its accent again", () =>
       if (highlight.bg.toLowerCase() === accent.toLowerCase()) bad.push(`${theme.id} ${mode} highlight is the accent`)
     }
   expect(bad).toEqual([])
-  // Most themes have one; a few stay with ink alone.
+  // Not every theme needs one — but a theme has it in both modes or in neither.
   const withSecond = themeList.filter((theme) => theme.light.highlight && theme.dark.highlight)
-  expect(withSecond.length).toBeGreaterThan(themeList.length / 2)
-  expect(withSecond.length).toBeLessThan(themeList.length)
+  expect(withSecond.length).toBeGreaterThanOrEqual(6)
+  expect(withSecond.length).toBeLessThanOrEqual((themeList.length * 2) / 3)
+  expect(themeList.filter((theme) => !!theme.light.highlight !== !!theme.dark.highlight)).toEqual([])
 })
 
 it("themes do not all open the same way, or sit on the same near-white page", () => {

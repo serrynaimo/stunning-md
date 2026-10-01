@@ -13,7 +13,7 @@ Everything in 0.1.0 still works as it did: no prop or export was removed or rena
 
 ### Changed
 
-- **Themes are bolder and less alike.** All 21 palettes were redrawn: pages are coloured rather than tinted, cards stand a clear step off the page, and dark pages keep their hue instead of converging on near-black. A text-led hero now opens one of three ways, set per theme: a soft wash, a cover in the accent colour, or a reversed cover in the theme's darkest tone. Most themes also have a second colour, in which quotations are set.
+- **Themes are bolder and less alike.** All 21 palettes were redrawn: pages are coloured rather than tinted, cards stand a clear step off the page, and dark pages keep their hue instead of converging on near-black. A text-led hero now opens one of three ways, set per theme: a soft wash, a cover in the accent colour, or a reversed cover in the theme's darkest tone. About half the themes also have a second colour, which rules their headings and in which quotations are set.
 - A lone column of years, in order, beside descriptions is read as a timeline rather than charted as amounts; plural time headings ("Years", "Dates") count as a time axis.
 - The top bar's title and controls sit at its two ends rather than lining up with the content column, and the contents sidebar is a little wider.
 - Short highlighted lists no longer end with a rule of their own, which doubled the section rule beneath them.

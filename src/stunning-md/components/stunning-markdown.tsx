@@ -346,7 +346,7 @@ function Page({
             Skip to content
           </a>
           {!chat && nav}
-          <div className="smd-body" data-sidebar={showSidebar || undefined}>
+          <div className="smd-body" data-sidebar={sidebar.available ? (sidebar.open ? "open" : "closed") : undefined}>
             <div className="smd-content">
               {/* With chat, the bar belongs to the page; the conversation runs the full height beside both. */}
               {chat && nav}
@@ -410,8 +410,10 @@ function Page({
                 />
               )}
             </div>
-            {showSidebar && (
+            {/* Kept in place while shut, so that opening and closing can be shown as a movement. */}
+            {sidebar.available && (
               <Sidebar
+                hidden={!sidebar.open}
                 id={sidebarId}
                 title="Contents"
                 showTitle={!chat}

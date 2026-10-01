@@ -66,11 +66,6 @@ await page.waitForTimeout(500)
 console.log("plain view: turns", await page.locator(".smd-turn .smd-plain").count(), "| designed sections left:", await page.locator(".smd-section").count())
 await page.getByRole("radio", { name: "Stunning" }).click()
 await page.waitForTimeout(500)
-// clear
-await page.getByRole("button", { name: "Clear the page" }).click()
-await page.waitForTimeout(500)
-console.log("after clear:", JSON.stringify(await state(page)), "| empty state:", await page.locator(".smd-empty").count())
-await page.screenshot({ path: `${out}/chat-7-cleared.png` })
 await page.close()
 
 // --- 2. phone: one-line input, conversation in the sheet

@@ -215,8 +215,6 @@ export default function Home() {
           }
           resolveUrl={resolveUrl}
           editable
-          // A cleared page is no longer the file that was opened.
-          onClear={() => setDoc((current) => current && { ...current, name: "New page" })}
         />
         {/* Without a model to ask there is no input: just the open file's name, and the way back. */}
         {!chat && (

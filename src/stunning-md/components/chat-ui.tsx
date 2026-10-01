@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUpIcon, EraserIcon, SquareIcon } from "lucide-react"
+import { ArrowUpIcon, SquareIcon } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { toText } from "../analyze/text"
@@ -137,12 +137,10 @@ export function ChatDock({
   busy,
   quiet = false,
   over = false,
-  canClear,
   accessory,
   style,
   onSend,
   onStop,
-  onClear,
 }: {
   notes: ChatNote[]
   busy: boolean
@@ -150,14 +148,12 @@ export function ChatDock({
   quiet?: boolean
   /** The conversation is open in a sheet over the page; the input floats above that too. */
   over?: boolean
-  canClear: boolean
   /** The look of the chat controls, which does not follow the page's theme. */
   style?: React.CSSProperties
   /** A control of the host's own, shown as a round button to the left of the input box. */
   accessory?: React.ReactNode
   onSend: (text: string) => void
   onStop: () => void
-  onClear: () => void
 }) {
   const [value, setValue] = useState("")
   const field = useRef<HTMLTextAreaElement>(null)
@@ -194,9 +190,6 @@ export function ChatDock({
             submit()
           }}
         >
-          <Button type="button" variant="ghost" size="icon" className="size-9 rounded-full" onClick={onClear} disabled={!canClear} aria-label="Clear the page" title="Clear the page">
-            <EraserIcon />
-          </Button>
           {/* The field grows with its text: a hidden copy sets the height. */}
           <div className="smd-chat-field" data-value={value}>
             <textarea

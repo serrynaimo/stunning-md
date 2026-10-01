@@ -61,8 +61,6 @@ export type StunningMarkdownProps = {
    * round button to the left of the chat input.
    */
   chatAccessory?: React.ReactNode
-  /** Called when the reader clears the page with the button beside the chat input. */
-  onClear?: () => void
   className?: string
   /** Called whenever the plan or theme changes — useful for debugging and tooling. */
   onPlan?: (plan: DocumentPlan, theme: ThemeChoice) => void
@@ -132,7 +130,6 @@ function Page({
   maxWaitMs = 8000,
   className,
   onPlan,
-  onClear,
 }: StunningMarkdownProps) {
   const root = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<View>("designed")
@@ -140,8 +137,6 @@ function Page({
   const [palettePicks, setPalettePicks] = useState<Record<string, PaletteId>>({})
   const [reports, setReports] = useState<Record<string, TurnReport>>({})
   const [documentReady, setDocumentReady] = useState(false)
-  // Clearing the page removes the document too, not just the conversation.
-  const [cleared, setCleared] = useState(false)
 
   // A document that arrives a little at a time is shown as far as it is complete.
   // Having grown on the page, it keeps the look it chose at the start — and there
@@ -155,7 +150,7 @@ function Page({
   // choose by, or all there is going to be.
   const themeBasis = !streaming || markdown.replace(FRONTMATTER, "").trim().length >= OPENING_LENGTH ? markdown : null
 
-  const hasDocument = (streaming || markdown.trim().length > 0) && !cleared
+  const hasDocument = streaming || markdown.trim().length > 0
   // Where the reader was before a turn took them to its place on the page.
   const before = useRef(0)
   const session = useChatSession({
@@ -300,16 +295,6 @@ function Page({
     return null
   }, [turns, reports, position.active])
 
-  const clear = () => {
-    session.clear()
-    setCleared(true)
-    setReports({})
-    setPalettePicks({})
-    setSidebarPick(null)
-    onClear?.()
-    window.scrollTo({ top: (root.current?.getBoundingClientRect().top ?? 0) + window.scrollY })
-  }
-
   // The document is laid out under a loader until its top has settled; a blank page has nothing to wait for.
   const ready = !hasDocument || documentReady || streamed
   const markReady = useCallback(() => setDocumentReady(true), [])
@@ -416,12 +401,10 @@ function Page({
                   busy={session.busy}
                   quiet={showSidebar || showSheet}
                   over={showSheet}
-                  canClear={turns.length > 0 || session.items.length > 0}
                   accessory={chatAccessory}
                   style={chatStyle}
                   onSend={session.send}
                   onStop={session.stop}
-                  onClear={clear}
                 />
               )}
             </div>

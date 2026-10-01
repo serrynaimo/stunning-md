@@ -7,7 +7,7 @@ Everything in 0.1.0 still works as it did: no prop or export was removed or rena
 ### Added
 
 - **Streaming.** `<StunningMarkdown markdown={textSoFar} streaming />` lays a document out as it is written — a section at a time, nothing half-written on the page, no loader and no reset between updates, in a theme chosen once from the opening. `settledMarkdown(text)` gives the same "what is ready" rule for use outside the component.
-- **Chat.** With a `chat` function the page takes requests: a floating input sends them to any OpenAI-compatible model, each answer is laid out as its own themed part of the page, and the model's remarks about its answer go to a conversation sidebar instead. New: `createChat`, `sortReply`, `BlockSplitter`, `CHAT_INSTRUCTIONS`, `chatCompletionsUrl`, and `createChatHandler` in `stunning-md/server`; props `chat`, `chatAccessory`, `onClear`.
+- **Chat.** With a `chat` function the page takes requests: a floating input sends them to any OpenAI-compatible model, each answer is laid out as its own themed part of the page, and the model's remarks about its answer go to a conversation sidebar instead. New: `createChat`, `sortReply`, `BlockSplitter`, `CHAT_INSTRUCTIONS`, `chatCompletionsUrl`, and `createChatHandler` in `stunning-md/server`; props `chat` and `chatAccessory`.
 - **Ranked bars for long names.** Horizontal bars whose category names do not fit a plot's label gutter are drawn with each name on its own line above its bar, so nothing is cut off.
 - `planDocument` takes an `idPrefix`, for several documents on one page; `judgeDocument` takes `skipTheme`, `themeOnly` and `context`.
 

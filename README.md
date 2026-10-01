@@ -164,7 +164,7 @@ Each answer chooses its theme once, from its opening and the request, and keeps 
 
 Headings, lists, tables, code and images are always content. A plain paragraph is judged by where it sits and how it reads: remarks come at the start or the end of a reply and usually announce themselves. The classifier is asked about the unclear ones — on its own it is not a reliable judge of this, so it never overrules both position and wording. Without a classifier, the first paragraph of a reply is taken as commentary, and so is the last.
 
-The open document and the conversation so far are sent to the chat model with each request, after `CHAT_INSTRUCTIONS` as the system prompt. A button beside the input clears the page — document and conversation — to start again.
+The open document and the conversation so far are sent to the chat model with each request, after `CHAT_INSTRUCTIONS` as the system prompt.
 
 ### Props
 
@@ -181,7 +181,6 @@ The open document and the conversation so far are sent to the chat model with ea
 | `editable` | `boolean` | `false` | Let the reader edit the text in the markdown view. |
 | `onMarkdownChange` | `(markdown: string) => void` | — | Called when the reader's edits are applied. |
 | `chatAccessory` | `ReactNode` | — | A button or link of your own, shown as a round button left of the chat input. |
-| `onClear` | `() => void` | — | Called when the reader clears the page from the chat input. |
 | `loadFonts` | `boolean` | `true` | Load the theme's typefaces from Google Fonts. |
 | `settleMs` | `number` | `2500` | Longest wait for an image to report its size. |
 | `maxWaitMs` | `number` | `8000` | Longest the loader waits for the classifier and fonts. |

@@ -397,6 +397,8 @@
   align-items: flex-end;
   gap: 0.25rem;
   padding: var(--smd-chat-inset);
+  /* The text starts where the box's corner has straightened out. */
+  padding-left: calc(var(--smd-chat-inset) + 0.5rem);
   border-radius: calc(var(--smd-chat-button) / 2 + var(--smd-chat-inset) + 1px);
   background: color-mix(in oklab, var(--background) 86%, transparent);
   border: 1px solid var(--border);

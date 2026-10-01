@@ -188,16 +188,5 @@ export function useChatSession(options: {
 
   const stop = useCallback(() => abort.current?.abort(), [])
 
-  /** Forget the conversation and everything it put on the page. */
-  const clear = useCallback(() => {
-    abort.current?.abort()
-    abort.current = null
-    history.current = []
-    setTurns([])
-    setItems([])
-    setNotes([])
-    setBusy(false)
-  }, [])
-
-  return { turns, items, notes, busy, send, stop, clear }
+  return { turns, items, notes, busy, send, stop }
 }

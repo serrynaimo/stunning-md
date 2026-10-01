@@ -1776,8 +1776,10 @@ img.smd-frame {
     opacity: 0;
   }
 }
+/* No fill: an animation that stays applied would keep the document in a layer of
+   its own, and the chat input could then never rise above a sheet opened over the page. */
 .smd[data-ready="true"] > .smd-document {
-  animation: smd-reveal 0.45s ease both;
+  animation: smd-reveal 0.45s ease;
 }
 @media (prefers-reduced-motion: reduce) {
   .smd-loader-mark {

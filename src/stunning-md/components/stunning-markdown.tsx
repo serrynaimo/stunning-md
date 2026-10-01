@@ -172,15 +172,16 @@ function Page({
   })
 
   // The turns on the page, top to bottom. A turn with nothing to show takes no room.
-  const turns = useMemo(
-    () => [
-      ...(hasDocument ? [{ id: DOCUMENT, prefix: "", markdown: shown, streaming, waiting: streaming && !markdown.trim(), writing, request: "" }] : []),
-      ...session.turns
-        .filter((turn) => (turn.streaming && !turn.unanswered) || turn.markdown.trim())
-        .map((turn) => ({ ...turn, prefix: `${turn.id}-` })),
-    ],
-    [hasDocument, shown, streaming, markdown, writing, session.turns],
-  )
+  const turns = useMemo(() => {
+    const placed = session.turns.filter((turn) => (turn.streaming && !turn.unanswered) || turn.markdown.trim())
+    // On a page with nothing on it yet, the request is shown where the answer would
+    // go before it is known to want one: there is nothing else there to look at.
+    const blank = !hasDocument && placed.length === 0
+    return [
+      ...(hasDocument ? [{ id: DOCUMENT, prefix: "", markdown: shown, streaming, waiting: streaming && !markdown.trim(), writing, request: "", idle: false }] : []),
+      ...(blank ? session.turns.filter((turn) => turn.streaming) : placed).map((turn) => ({ ...turn, prefix: `${turn.id}-`, idle: turn.unanswered })),
+    ]
+  }, [hasDocument, shown, streaming, markdown, writing, session.turns])
 
   const report = useCallback(
     (id: string, next: TurnReport) => {
@@ -360,6 +361,7 @@ function Page({
                       markdown={turn.markdown}
                       streaming={turn.streaming}
                       waiting={turn.waiting}
+                      idle={turn.idle}
                       // Until the answer starts, the turn shows what was asked in its place.
                       asked={turn.request || undefined}
                       writing={turn.writing}

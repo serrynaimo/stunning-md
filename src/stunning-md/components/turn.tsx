@@ -29,6 +29,11 @@ export type TurnViewProps = {
   streaming?: boolean
   /** Nothing has come back from the model yet. */
   waiting?: boolean
+  /**
+   * Not known to be writing anything for the page — the reply may be conversation
+   * alone. The request is still shown while `waiting`, but no progress after it.
+   */
+  idle?: boolean
   /** What was asked, shown as a chat bubble while `waiting`. */
   asked?: string
   /** The section being written, shown while `streaming`. */
@@ -129,6 +134,7 @@ export function TurnView({
   markdown: given,
   streaming = false,
   waiting = false,
+  idle = false,
   asked,
   writing,
   lockTheme = false,
@@ -391,7 +397,8 @@ export function TurnView({
               </div>
             </>
           ))}
-        {streaming && (
+        {/* Shown while the turn is being written — and after, if what was written is still waiting for its look. */}
+        {((streaming && (bubble || !idle)) || (hasText && !visible)) && (
           <div className="smd-writing" role="status">
             <span className="smd-loader-mark" aria-hidden />
             {bubble ? (

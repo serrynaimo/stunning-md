@@ -39,6 +39,23 @@ it("a cover's text is legible too", () => {
   expect(bad).toEqual([])
 })
 
+it("a theme's second colour carries its text and is not its accent again", () => {
+  const bad: string[] = []
+  for (const theme of themeList)
+    for (const mode of ["light", "dark"] as const) {
+      const { highlight, accent } = theme[mode]
+      if (!highlight) continue
+      const text = contrast(highlight.fg, highlight.bg)
+      if (text < 5.5) bad.push(`${theme.id} ${mode} text on highlight ${text.toFixed(2)} < 5.5`)
+      if (highlight.bg.toLowerCase() === accent.toLowerCase()) bad.push(`${theme.id} ${mode} highlight is the accent`)
+    }
+  expect(bad).toEqual([])
+  // Most themes have one; a few stay with ink alone.
+  const withSecond = themeList.filter((theme) => theme.light.highlight && theme.dark.highlight)
+  expect(withSecond.length).toBeGreaterThan(themeList.length / 2)
+  expect(withSecond.length).toBeLessThan(themeList.length)
+})
+
 it("themes do not all open the same way, or sit on the same near-white page", () => {
   const tones = new Set(themeList.map((theme) => theme.hero))
   expect(tones.size).toBe(3)

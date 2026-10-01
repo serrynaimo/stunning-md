@@ -43,7 +43,7 @@ describe("judgeDocument", () => {
     const question = seen[0].questions.theme
     expect(question.type).toBe("choice")
     expect(Object.keys(question.criteria)).toHaveLength(21)
-    expect((question.criteria as Record<string, string>).ocean).toBe("business reports, finance, strategy, investors; cool white, corporate blue cover; Inter, neutral sans")
+    expect((question.criteria as Record<string, string>).ocean).toBe("business reports, finance, strategy, investors; cool white, corporate blue cover, amber; Inter, neutral sans")
   })
 
   it("turns a chart back into a table when its numbers are only there to be looked up", async () => {

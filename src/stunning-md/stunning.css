@@ -870,6 +870,29 @@
   background: var(--background);
   color: var(--foreground);
 }
+/* A theme with a second colour reverses into that instead of into ink: the
+   cover at the top of the page has an answer further down. */
+.smd-turn[data-highlight] .smd-section[data-tone="invert"],
+.smd-turn[data-highlight] .smd-flow .smd-pull {
+  --background: var(--smd-highlight);
+  --foreground: var(--smd-highlight-fg);
+  --muted-foreground: color-mix(in oklab, var(--smd-highlight-fg) 80%, var(--smd-highlight));
+  --border: color-mix(in oklab, var(--smd-highlight-fg) 26%, var(--smd-highlight));
+  --primary: var(--smd-highlight-fg);
+  background: var(--background);
+  color: var(--foreground);
+}
+/* A quotation inside an article becomes a block of it rather than a ruled margin. */
+.smd-turn[data-highlight] .smd-section:not([data-layout="quote"]) .smd-flow .smd-pull {
+  max-width: 52rem;
+  padding: clamp(1.4rem, 3vw, 2.4rem) clamp(1.4rem, 3.2vw, 2.6rem);
+  border-left: 0;
+  border-radius: calc(var(--radius) * 1.8);
+}
+/* In its own section the band is already the block. */
+.smd-turn[data-highlight] .smd-section[data-layout="quote"] .smd-pull {
+  background: none;
+}
 
 .smd-section-menu {
   position: absolute;

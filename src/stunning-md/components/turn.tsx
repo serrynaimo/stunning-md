@@ -370,6 +370,8 @@ export function TurnView({
         className="smd-turn"
         style={visible ? style : pendingStyle}
         data-theme={visible ? theme.palette : undefined}
+        // Themes with a second colour set their quotations in it.
+        data-highlight={visible && themes[theme.palette][appearance].highlight ? "" : undefined}
         data-fill={fill || undefined}
         // A turn that is written while you watch brings each new part in gently.
         data-grows={lockTheme || undefined}

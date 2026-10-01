@@ -28,6 +28,8 @@ export function createChat(options: { endpoint: string; model?: string; headers?
     // Some servers ignore `stream` and answer in one piece.
     if ((response.headers.get("content-type") ?? "").includes("application/json")) {
       const data = await response.json()
+      const failure = errorIn(data)
+      if (failure) throw new Error(failure)
       const whole = data?.choices?.[0]?.message?.content
       if (typeof whole === "string") yield whole
       return
@@ -35,6 +37,9 @@ export function createChat(options: { endpoint: string; model?: string; headers?
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ""
+    // Text that is not part of the event stream — some providers report an error this way, under a 200.
+    let stray = ""
+    let yielded = false
     for (;;) {
       const { done, value } = await reader.read()
       buffer += done ? decoder.decode() : decoder.decode(value, { stream: true })
@@ -42,19 +47,58 @@ export function createChat(options: { endpoint: string; model?: string; headers?
       buffer = done ? "" : (lines.pop() ?? "")
       for (const raw of lines) {
         const line = raw.trim()
-        if (!line.startsWith("data:")) continue
+        if (!line.startsWith("data:")) {
+          if (line && !line.startsWith(":") && stray.length < 4000) stray += raw
+          continue
+        }
         const payload = line.slice(5).trim()
         if (payload === "[DONE]") return
+        let event: unknown
         try {
-          const delta = JSON.parse(payload)?.choices?.[0]?.delta?.content
-          if (typeof delta === "string" && delta) yield delta
+          event = JSON.parse(payload)
         } catch {
-          // A keep-alive or a partial line; nothing to show.
+          // A partial line; nothing to show.
+          continue
+        }
+        const failure = errorIn(event)
+        if (failure) throw new Error(failure)
+        const delta = (event as { choices?: { delta?: { content?: unknown } }[] })?.choices?.[0]?.delta?.content
+        if (typeof delta === "string" && delta) {
+          yielded = true
+          yield delta
         }
       }
-      if (done) return
+      if (done) break
+    }
+    if (!yielded && stray.trim()) {
+      let failure: string | null = null
+      try {
+        failure = errorIn(JSON.parse(stray))
+      } catch {
+        // Not JSON: nothing recognisable to report.
+      }
+      throw new Error(failure ?? "the chat model returned nothing")
     }
   }
+}
+
+/** The message of an error object, in the shapes providers use: `{ error }` or `[{ error }]`. */
+function errorIn(body: unknown): string | null {
+  const first = Array.isArray(body) ? body[0] : body
+  const error = (first as { error?: unknown } | null)?.error
+  if (!error) return null
+  if (typeof error === "string") return error
+  const message = (error as { message?: unknown }).message
+  return typeof message === "string" && message ? message : "the chat model reported an error"
+}
+
+/**
+ * The address of an OpenAI-compatible chat endpoint, given either the full
+ * `…/chat/completions` address or just the API's base (`…/v1`).
+ */
+export function chatCompletionsUrl(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, "")
+  return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`
 }
 
 // --- splitting a reply into blocks ----------------------------------------------
@@ -77,7 +121,9 @@ function describe(text: string): ReplyBlock {
   const heading = HEADING.exec(first)
   if (heading) return { text, kind: "heading", depth: heading[1].length }
   const table = /^\s{0,3}\|?\s*:?-{3,}/.test(text.split("\n")[1] ?? "")
-  if (FENCE.test(first) || first.startsWith("$$") || NOT_PROSE.test(first) || table) return { text, kind: "other" }
+  // A line set wholly in bold is a title in all but name.
+  const boldLine = /^\*\*[^*\n]+\*\*:?$/.test(text)
+  if (FENCE.test(first) || first.startsWith("$$") || NOT_PROSE.test(first) || table || boldLine) return { text, kind: "other" }
   return { text, kind: "paragraph" }
 }
 
@@ -319,3 +365,21 @@ export const CHAT_INSTRUCTIONS = [
   "Use tables for figures, schedules and comparisons, lists for short points, and blockquotes for quotations.",
   "Keep any remarks to the user — acknowledgements, caveats, questions, offers of more help — in their own short paragraphs, separate from the content.",
 ].join(" ")
+
+/**
+ * How the assistant is told about the document already on the page. What it
+ * writes is appended below that document, so it must write only what is new.
+ */
+export function documentContext(markdown: string, limit = 16000): string {
+  if (!markdown.trim()) return ""
+  return [
+    "",
+    "",
+    "The page already shows the document below. Whatever you write is added to the page beneath it, as a new part.",
+    "Write only the new material that was asked for — never reproduce or rewrite the existing document, not even to place the new part in context.",
+    "",
+    "<document>",
+    markdown.slice(0, limit),
+    "</document>",
+  ].join("\n")
+}

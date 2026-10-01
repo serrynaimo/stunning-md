@@ -1,3 +1,5 @@
+import { chatCompletionsUrl } from "./chat"
+
 /**
  * Server-side helper: a request handler that forwards classifier questions to the
  * upstream endpoint with the API key attached, so the key never reaches the browser.
@@ -59,13 +61,13 @@ export function createClassifierHandler(options: {
  *
  *   // app/api/chat/route.ts
  *   export const POST = createChatHandler({
- *     url: process.env.STUNNING_MD_CHAT_URL,
+ *     url: process.env.STUNNING_MD_CHAT_URL, // …/v1 or …/v1/chat/completions
  *     model: process.env.STUNNING_MD_CHAT_MODEL,
  *     apiKey: process.env.STUNNING_MD_CHAT_KEY, // optional
  *   })
  */
 export function createChatHandler(options: {
-  /** The full `…/chat/completions` address. */
+  /** The provider's `…/chat/completions` address, or just its base (`…/v1`). */
   url?: string
   model?: string
   apiKey?: string
@@ -97,7 +99,7 @@ export function createChatHandler(options: {
     if (list.reduce((sum, m) => sum + m.content.length, 0) > maxLength) return json({ error: "conversation too long" }, 413)
 
     try {
-      const upstream = await fetch(options.url, {
+      const upstream = await fetch(chatCompletionsUrl(options.url), {
         method: "POST",
         headers: {
           "content-type": "application/json",

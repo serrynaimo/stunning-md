@@ -5,6 +5,7 @@ import { useId, useMemo, useState, useSyncExternalStore } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { chatCompletionsUrl } from "@/stunning-md"
 
 export type OwnChat = { url: string; model: string; key: string }
 
@@ -57,7 +58,7 @@ export function useOwnChat(): OwnChat | null {
 async function check({ url, model, key }: OwnChat): Promise<string | null> {
   let response: Response
   try {
-    response = await fetch(url, {
+    response = await fetch(chatCompletionsUrl(url), {
       method: "POST",
       headers: { "content-type": "application/json", ...(key ? { authorization: `Bearer ${key}` } : {}) },
       body: JSON.stringify({ model, messages: [{ role: "user", content: "Reply with the single word: ready" }], max_tokens: 8 }),
@@ -134,7 +135,7 @@ export function OwnChatForm({ current }: { current: OwnChat | null }) {
             id={ids.url}
             type="url"
             inputMode="url"
-            placeholder="https://example.com/v1/chat/completions"
+            placeholder="https://example.com/v1"
             value={url}
             onChange={(event) => setUrl(event.target.value)}
             autoComplete="off"

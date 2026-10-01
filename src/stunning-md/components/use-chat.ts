@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { CHAT_INSTRUCTIONS, sortReply, type Chat, type ChatMessage } from "../chat"
+import { CHAT_INSTRUCTIONS, documentContext, sortReply, type Chat, type ChatMessage } from "../chat"
 import type { Classify } from "../classifier"
 
 /** The content of one assistant reply, as it accumulates. */
@@ -25,8 +25,6 @@ export type ChatNote = { id: string; text: string }
 
 /** How long a remark stays above the input before it fades, in ms. */
 const NOTE_LIFETIME = 7000
-/** How much of the open document is given to the model as context, in characters. */
-const CONTEXT_LIMIT = 16000
 
 /**
  * A conversation whose answers become page content. Each reply is sorted as it
@@ -80,10 +78,7 @@ export function useChatSession(options: { chat?: Chat; classifier?: Classify; do
       setTurns((all) => [...all, { id: turnId, markdown: "", streaming: true, writing: null }])
       onTurnStart?.(turnId)
 
-      const context = document.trim()
-        ? `\n\nThe page already shows this document, written in markdown. Add to it or answer about it as asked; do not repeat it.\n\n${document.slice(0, CONTEXT_LIMIT)}`
-        : ""
-      const messages: ChatMessage[] = [{ role: "system", content: CHAT_INSTRUCTIONS + context }, ...history.current, { role: "user", content: request }]
+      const messages: ChatMessage[] = [{ role: "system", content: CHAT_INSTRUCTIONS + documentContext(document) }, ...history.current, { role: "user", content: request }]
 
       sortReply({
         stream: chat(messages, controller.signal),

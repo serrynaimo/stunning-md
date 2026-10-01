@@ -194,3 +194,41 @@ describe("createChat", () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe("provider quirks", () => {
+  it("reports an error that arrives as a plain body under a 200 and an event-stream type", async () => {
+    const bodies = ['{"error":{"code":503,"message":"server busy: too many queued requests"}}', '[{\n  "error": {\n    "code": 503,\n    "message": "This model is currently experiencing high demand."\n  }\n}\n]']
+    for (const body of bodies) {
+      vi.stubGlobal("fetch", async () => new Response(body, { headers: { "content-type": "text/event-stream" } }))
+      await expect(async () => {
+        for await (const _ of createChat({ endpoint: "/x" })([{ role: "user", content: "Hi" }])) void _
+      }).rejects.toThrow(/busy|high demand/)
+    }
+    vi.unstubAllGlobals()
+  })
+
+  it("accepts an API base as well as the full chat address", async () => {
+    const { chatCompletionsUrl } = await import("@/stunning-md/chat")
+    expect(chatCompletionsUrl("https://api.example.com/v1")).toBe("https://api.example.com/v1/chat/completions")
+    expect(chatCompletionsUrl("https://api.example.com/v1/")).toBe("https://api.example.com/v1/chat/completions")
+    expect(chatCompletionsUrl("https://api.example.com/v1/chat/completions")).toBe("https://api.example.com/v1/chat/completions")
+  })
+})
+
+describe("titles and context", () => {
+  it("treats a line set wholly in bold as a title, not as a remark", async () => {
+    const events: TurnEvent[] = []
+    const result = await sortReply({ stream: streamOf("**Our new decaf**\n\nIt is processed with water alone.\n\n- No solvents\n\nEnjoy!"), onEvent: (e) => events.push(e) })
+    expect(result.content.startsWith("**Our new decaf**")).toBe(true)
+    expect(events.filter((e) => e.type === "commentary").map((e) => (e as { text: string }).text)).toEqual(["Enjoy!"])
+  })
+
+  it("tells the model to add to an open document rather than repeat it", async () => {
+    const { documentContext } = await import("@/stunning-md/chat")
+    expect(documentContext("")).toBe("")
+    const context = documentContext("# Title\n\nBody")
+    expect(context).toMatch(/only the new material/)
+    expect(context).toContain("<document>\n# Title\n\nBody\n</document>")
+    expect(documentContext("x".repeat(20000)).length).toBeLessThan(16400)
+  })
+})

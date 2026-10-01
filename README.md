@@ -101,7 +101,7 @@ Give the component a chat function and the page takes requests. A floating input
 import { createChatHandler } from "stunning-md/server"
 
 export const POST = createChatHandler({
-  url: process.env.STUNNING_MD_CHAT_URL, // the full …/chat/completions address
+  url: process.env.STUNNING_MD_CHAT_URL, // …/v1, or the full …/chat/completions address
   model: process.env.STUNNING_MD_CHAT_MODEL,
   apiKey: process.env.STUNNING_MD_CHAT_KEY, // optional — a local model needs none
 })

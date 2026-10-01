@@ -4,7 +4,7 @@ import { ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, Sp
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { createChat, createClassifier, StunningMarkdown } from "@/stunning-md"
+import { chatCompletionsUrl, createChat, createClassifier, StunningMarkdown } from "@/stunning-md"
 import { OwnChatForm, useOwnChat } from "./own-chat"
 import { OwnClassifierForm, useOwnClassifier } from "./own-classifier"
 
@@ -93,7 +93,7 @@ export default function Home() {
   const [siteChatState, setSiteChatState] = useState<"unknown" | "configured" | "missing">(STATIC ? "missing" : "unknown")
   const ownChat = useOwnChat()
   const ownChatFn = useMemo(
-    () => (ownChat ? createChat({ endpoint: ownChat.url, model: ownChat.model, headers: ownChat.key ? { authorization: `Bearer ${ownChat.key}` } : undefined }) : undefined),
+    () => (ownChat ? createChat({ endpoint: chatCompletionsUrl(ownChat.url), model: ownChat.model, headers: ownChat.key ? { authorization: `Bearer ${ownChat.key}` } : undefined }) : undefined),
     [ownChat],
   )
   const chat = siteChatState === "configured" ? siteChat : ownChatFn

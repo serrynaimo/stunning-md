@@ -714,6 +714,43 @@
     radial-gradient(40rem 24rem at 0% 110%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 70%);
 }
 
+/* Some themes open with a cover instead: a block of their accent colour… */
+.smd-hero[data-tone="block"] {
+  --background: var(--smd-accent);
+  --foreground: var(--smd-accent-fg);
+  --muted-foreground: color-mix(in oklab, var(--smd-accent-fg) 84%, var(--smd-accent));
+  --primary: var(--smd-accent-fg);
+  --primary-foreground: var(--smd-accent);
+  --border: color-mix(in oklab, var(--smd-accent-fg) 30%, var(--smd-accent));
+}
+/* …or of their darkest tone, with the page's colours reversed. */
+.smd-hero[data-tone="ink"] {
+  --background: var(--smd-fg);
+  --foreground: var(--smd-bg);
+  --muted-foreground: color-mix(in oklab, var(--smd-bg) 80%, var(--smd-fg));
+  --primary: var(--smd-hero-accent);
+  --primary-foreground: var(--smd-fg);
+  --border: color-mix(in oklab, var(--smd-bg) 26%, var(--smd-fg));
+}
+/* At night a reversed cover would be a slab of white: it is a deep band of the accent instead. */
+.smd.dark .smd-hero[data-tone="ink"] {
+  --background: color-mix(in oklab, var(--smd-accent) 30%, var(--smd-bg));
+  --foreground: var(--smd-fg);
+  --muted-foreground: color-mix(in oklab, var(--smd-fg) 80%, var(--background));
+  --primary: var(--smd-accent);
+  --primary-foreground: var(--smd-bg);
+  --border: color-mix(in oklab, var(--smd-fg) 22%, var(--background));
+}
+.smd-hero[data-tone="block"],
+.smd-hero[data-tone="ink"] {
+  background: var(--background);
+  color: var(--foreground);
+}
+.smd-hero[data-tone="block"]::before,
+.smd-hero[data-tone="ink"]::before {
+  content: none;
+}
+
 .smd-hero[data-variant="logo"] .smd-hero-text {
   margin-inline: auto;
   text-align: center;
@@ -1143,9 +1180,8 @@
   padding-block: 0.85em;
   border-top: 1px solid var(--border);
 }
-.smd-list-feature > li:last-child {
-  border-bottom: 1px solid var(--border);
-}
+/* A rule above each item and none below the last: whatever follows — the end of
+   the section, most often — draws its own line, and two in a row is one too many. */
 .smd-list-marker {
   font-family: var(--smd-font-heading);
   font-weight: var(--smd-heading-weight);
@@ -1169,9 +1205,6 @@ ul.smd-list-feature .smd-list-marker {
     grid-template-columns: 1fr 1fr;
     column-gap: clamp(1.5rem, 4vw, 3.5rem);
   }
-  .smd-list-feature[data-columns="2"] > li:nth-last-child(2):nth-child(odd) {
-    border-bottom: 1px solid var(--border);
-  }
 }
 
 /* Inside a card a list is supporting detail, not a headline: body size, tight rows. */
@@ -1182,9 +1215,6 @@ ul.smd-list-feature .smd-list-marker {
 .smd-card .smd-list-feature > li {
   gap: 0.7rem;
   padding-block: 0.55em;
-}
-.smd-card .smd-list-feature > li:last-child {
-  border-bottom: 0;
 }
 .smd-card ul.smd-list-feature .smd-list-marker {
   width: 0.375em;

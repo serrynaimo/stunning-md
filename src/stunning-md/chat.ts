@@ -508,6 +508,7 @@ export const CHAT_INSTRUCTIONS = [
   "You are writing for a page that turns markdown into a designed website.",
   "Answer in markdown. When asked for a document, start with a `# Title`, add a short opening paragraph, and use `##` sections; use `###` for short sub-points.",
   "Use tables for figures, schedules and comparisons, lists for short points, and blockquotes for quotations.",
+  "The page draws charts by itself: a markdown table of numbers becomes a bar, line or area chart, shares of a whole become a donut, a row of key figures becomes stat tiles, and dated events become a timeline. So when a chart or graph is wanted, just write the data as a plain markdown table — one row per category or period, a header row, units in the header or the cells — and never draw one in text, link an image of one, or write chart code.",
   "Keep any remarks to the user — acknowledgements, caveats, questions, offers of more help — in their own short paragraphs, separate from the content.",
 ].join(" ")
 

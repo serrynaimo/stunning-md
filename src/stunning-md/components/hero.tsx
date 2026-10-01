@@ -1,12 +1,13 @@
 "use client"
 
+import { themes } from "../theme/themes"
 import type { DocumentPlan } from "../types"
 import { useStunning } from "./context"
 import { Inline, safeUrl } from "./flow"
 import { Picture } from "./media"
 
 export function HeroView({ plan, id = "top" }: { plan: DocumentPlan; id?: string }) {
-  const { resolveUrl } = useStunning()
+  const { resolveUrl, theme } = useStunning()
   const { hero } = plan
   if (!hero.titleText && !hero.lead.length && !hero.image) return null
 
@@ -52,7 +53,13 @@ export function HeroView({ plan, id = "top" }: { plan: DocumentPlan; id?: string
   )
 
   return (
-    <header className="smd-hero" data-variant={hero.variant} id={id}>
+    <header
+      className="smd-hero"
+      data-variant={hero.variant}
+      // A cover is for a hero led by its text; a photograph is its own cover, and a logo is drawn for the page behind it.
+      data-tone={hero.variant === "plain" || hero.variant === "figure" ? themes[theme.palette].hero : undefined}
+      id={id}
+    >
       {hero.variant === "banner" && hero.image && (
         <>
           <Picture image={hero.image} eager className="smd-cover" />

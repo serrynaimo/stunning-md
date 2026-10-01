@@ -27,6 +27,26 @@ it("every theme is legible in both modes", () => {
   expect(bad).toEqual([])
 })
 
+it("a cover's text is legible too", () => {
+  const bad: string[] = []
+  for (const theme of themeList) {
+    // A reversed cover sets the page's colours the other way round, and its small print in the other mode's accent.
+    if (theme.hero === "ink") {
+      const value = contrast(theme.dark.accent, theme.light.fg)
+      if (value < 4.5) bad.push(`${theme.id} light cover eyebrow ${value.toFixed(2)}`)
+    }
+  }
+  expect(bad).toEqual([])
+})
+
+it("themes do not all open the same way, or sit on the same near-white page", () => {
+  const tones = new Set(themeList.map((theme) => theme.hero))
+  expect(tones.size).toBe(3)
+  // Fewer than a third of the light pages may be as pale as plain paper.
+  const pale = themeList.filter((theme) => lum(theme.light.bg) > 0.9)
+  expect(pale.length).toBeLessThan(themeList.length / 3)
+})
+
 it("every theme names a typeface pairing and describes its look to the classifier", () => {
   for (const theme of themeList) {
     expect(fontPairings[theme.fonts], theme.id).toBeDefined()

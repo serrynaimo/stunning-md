@@ -257,7 +257,9 @@ There are 21 themes, each a complete look — light and dark colours, a typeface
 
 `paper` · `ink` · `ocean` · `forest` · `sunset` · `violet` · `terminal` · `chambers` · `academia` · `blueprint` · `midnight` · `rose` · `sand` · `citrus` · `crimson` · `slate` · `lagoon` · `plum` · `poster` · `espresso` · `console`
 
-and 14 typeface pairings (`editorial`, `modern`, `technical`, `elegant`, `friendly`, `classic`, `scholarly`, `geometric`, `luxe`, `rounded`, `gazette`, `slab`, `poster`, `mono`), loaded from Google Fonts.
+The themes are meant to look unlike one another. Pages are coloured rather than tinted — a sunny yellow, an aqua, a blueprint blue, a wine red at night — with cards a clear step lighter or darker than the page. And a hero led by its text opens one of three ways, set per theme as `hero`: `wash` (a soft glow of the accent on the page), `block` (a cover in the accent colour) or `ink` (a cover in the theme's darkest tone, the page's colours reversed). A hero with a photograph or a logo keeps the page as it is.
+
+There are also 14 typeface pairings (`editorial`, `modern`, `technical`, `elegant`, `friendly`, `classic`, `scholarly`, `geometric`, `luxe`, `rounded`, `gazette`, `slab`, `poster`, `mono`), loaded from Google Fonts.
 
 Charts follow the theme too:
 

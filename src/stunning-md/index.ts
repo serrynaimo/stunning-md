@@ -23,6 +23,7 @@ export {
 export {
   themes,
   themeList,
+  themeTopics,
   fontPairings,
   fontPairingList,
   guessTheme,
@@ -33,6 +34,7 @@ export {
   type Theme,
   type FontPairing,
   type HeroTone,
+  type ThemeTopic,
   type PaletteTokens,
 } from "./theme/themes"
 

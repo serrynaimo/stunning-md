@@ -33,12 +33,31 @@ export type ChartStyle = "linework" | "instrument" | "soft" | "flat"
  */
 export type HeroTone = "wash" | "block" | "ink"
 
+/** The families the themes fall into by subject — how the picker is arranged. */
+export type ThemeTopic = "writing" | "official" | "technology" | "lifestyle" | "wellbeing" | "culture"
+
+export const themeTopics: { id: ThemeTopic; name: string }[] = [
+  { id: "writing", name: "Writing" },
+  { id: "official", name: "Business & official" },
+  { id: "technology", name: "Technology" },
+  { id: "lifestyle", name: "Places & lifestyle" },
+  { id: "wellbeing", name: "Nature & health" },
+  { id: "culture", name: "Culture & play" },
+]
+
 export type Theme = {
   id: PaletteId
   name: string
-  /** The kinds of document this theme suits. */
+  /** The family of subjects it belongs to. */
+  topic: ThemeTopic
+  /**
+   * The kinds of document this theme suits — and all the classifier reads when
+   * choosing one. Name subjects, not moods: measured against documents of known
+   * subject, subjects alone choose better, and in half the time, than subjects
+   * with colours and typefaces beside them.
+   */
   description: string
-  /** Its key colours in a few plain words — read by the classifier alongside the description. */
+  /** Its key colours in a few plain words, for people reading the list. */
   look: string
   /** Typography used unless the caller picks another. */
   fonts: FontPairingId
@@ -79,7 +98,8 @@ export const themes: Record<PaletteId, Theme> = {
   paper: {
     id: "paper",
     name: "Paper",
-    description: "essays, stories, opinion, personal writing",
+    topic: "writing",
+    description: "essays, short stories, fiction, memoir, opinion, local history",
     look: "cream paper, terracotta accent",
     fonts: "editorial",
     formality: 0.5,
@@ -92,7 +112,8 @@ export const themes: Record<PaletteId, Theme> = {
   ink: {
     id: "ink",
     name: "Ink",
-    description: "plain notes, memos, minimal design writing",
+    topic: "writing",
+    description: "meeting notes, memos, minutes, plain lists",
     look: "white page, black cover, no colour",
     fonts: "modern",
     formality: 0.7,
@@ -105,7 +126,8 @@ export const themes: Record<PaletteId, Theme> = {
   ocean: {
     id: "ocean",
     name: "Ocean",
-    description: "business reports, finance, strategy, investors",
+    topic: "official",
+    description: "business reports, finance, sales, strategy, investors",
     look: "cool white, corporate blue cover, amber",
     fonts: "modern",
     formality: 0.6,
@@ -118,7 +140,8 @@ export const themes: Record<PaletteId, Theme> = {
   forest: {
     id: "forest",
     name: "Forest",
-    description: "nature, environment, outdoors, gardening",
+    topic: "wellbeing",
+    description: "nature, environment, outdoors, gardening, biology",
     look: "sage green page, deep forest green",
     fonts: "friendly",
     formality: 0.35,
@@ -131,7 +154,8 @@ export const themes: Record<PaletteId, Theme> = {
   sunset: {
     id: "sunset",
     name: "Sunset",
-    description: "travel journals, itineraries, destinations",
+    topic: "lifestyle",
+    description: "travel journals, itineraries, destinations, city guides",
     look: "apricot page, burnt orange cover",
     fonts: "elegant",
     formality: 0.4,
@@ -144,7 +168,8 @@ export const themes: Record<PaletteId, Theme> = {
   violet: {
     id: "violet",
     name: "Violet",
-    description: "tech products, startups, AI, launches",
+    topic: "technology",
+    description: "tech products, startups, AI, launches, pricing pages",
     look: "lavender page, vivid purple cover, lime",
     fonts: "friendly",
     formality: 0.25,
@@ -157,7 +182,8 @@ export const themes: Record<PaletteId, Theme> = {
   terminal: {
     id: "terminal",
     name: "Terminal",
-    description: "software docs, READMEs, API and developer guides",
+    topic: "technology",
+    description: "software docs, READMEs, API and developer guides, framework comparisons",
     look: "cool grey, dark slate cover, teal, amber",
     fonts: "technical",
     formality: 0.6,
@@ -170,6 +196,7 @@ export const themes: Record<PaletteId, Theme> = {
   chambers: {
     id: "chambers",
     name: "Chambers",
+    topic: "official",
     description: "legal documents, contracts, policy, regulation",
     look: "ivory, navy cover, gold",
     fonts: "classic",
@@ -183,7 +210,8 @@ export const themes: Record<PaletteId, Theme> = {
   academia: {
     id: "academia",
     name: "Academia",
-    description: "scholarly papers, research, theses, lecture notes",
+    topic: "official",
+    description: "scholarly papers, research, theses, lecture notes, science explainers",
     look: "parchment, oxblood red",
     fonts: "scholarly",
     formality: 0.9,
@@ -196,6 +224,7 @@ export const themes: Record<PaletteId, Theme> = {
   blueprint: {
     id: "blueprint",
     name: "Blueprint",
+    topic: "technology",
     description: "engineering specs, architecture, hardware, proposals",
     look: "pale drafting blue, cobalt cover, marker yellow",
     fonts: "geometric",
@@ -209,7 +238,8 @@ export const themes: Record<PaletteId, Theme> = {
   midnight: {
     id: "midnight",
     name: "Midnight",
-    description: "night-time, space, science fiction, games, nightlife",
+    topic: "culture",
+    description: "night-time, space, astronomy, science fiction, games, nightlife",
     look: "periwinkle, deep indigo cover, electric cyan, magenta",
     fonts: "geometric",
     formality: 0.4,
@@ -222,7 +252,8 @@ export const themes: Record<PaletteId, Theme> = {
   rose: {
     id: "rose",
     name: "Rose",
-    description: "weddings, beauty, fashion, celebrations",
+    topic: "lifestyle",
+    description: "weddings, beauty, skincare, fashion, celebrations",
     look: "blush pink page, deep rose",
     fonts: "luxe",
     formality: 0.3,
@@ -235,6 +266,7 @@ export const themes: Record<PaletteId, Theme> = {
   sand: {
     id: "sand",
     name: "Sand",
+    topic: "lifestyle",
     description: "interiors, craft, slow living, quiet luxury",
     look: "stone beige, muted olive",
     fonts: "luxe",
@@ -248,7 +280,8 @@ export const themes: Record<PaletteId, Theme> = {
   citrus: {
     id: "citrus",
     name: "Citrus",
-    description: "children, schools, community, playful guides",
+    topic: "culture",
+    description: "children, schools, community events, playful guides",
     look: "sunny yellow page, bold orange cover",
     fonts: "rounded",
     formality: 0.05,
@@ -261,6 +294,7 @@ export const themes: Record<PaletteId, Theme> = {
   crimson: {
     id: "crimson",
     name: "Crimson",
+    topic: "official",
     description: "news, journalism, press releases, politics",
     look: "newsprint white, red masthead",
     fonts: "gazette",
@@ -274,6 +308,7 @@ export const themes: Record<PaletteId, Theme> = {
   slate: {
     id: "slate",
     name: "Slate",
+    topic: "official",
     description: "operations manuals, industrial reports, safety procedures",
     look: "steel grey, safety orange cover, hazard yellow",
     fonts: "slab",
@@ -287,7 +322,8 @@ export const themes: Record<PaletteId, Theme> = {
   lagoon: {
     id: "lagoon",
     name: "Lagoon",
-    description: "healthcare, medicine, patient information, wellbeing",
+    topic: "wellbeing",
+    description: "healthcare, medicine, patient information, fitness, wellbeing",
     look: "aqua page, calm teal, coral",
     fonts: "modern",
     formality: 0.45,
@@ -300,6 +336,7 @@ export const themes: Record<PaletteId, Theme> = {
   plum: {
     id: "plum",
     name: "Plum",
+    topic: "culture",
     description: "arts, music, theatre, film, exhibitions",
     look: "orchid mauve page, deep plum cover, gold",
     fonts: "elegant",
@@ -313,7 +350,8 @@ export const themes: Record<PaletteId, Theme> = {
   poster: {
     id: "poster",
     name: "Poster",
-    description: "events, sports, bold announcements, manifestos",
+    topic: "culture",
+    description: "sports, tournaments, events, bold announcements, manifestos",
     look: "stark black and white, electric blue block, neon yellow",
     fonts: "poster",
     formality: 1,
@@ -326,6 +364,7 @@ export const themes: Record<PaletteId, Theme> = {
   espresso: {
     id: "espresso",
     name: "Espresso",
+    topic: "lifestyle",
     description: "food, recipes, coffee, restaurants, small makers",
     look: "latte page, dark roast cover, caramel",
     fonts: "slab",
@@ -339,7 +378,8 @@ export const themes: Record<PaletteId, Theme> = {
   console: {
     id: "console",
     name: "Console",
-    description: "changelogs, release notes, security write-ups, logs",
+    topic: "technology",
+    description: "changelogs, release notes, incident reports, security write-ups, logs",
     look: "black screen, phosphor green, amber",
     fonts: "mono",
     formality: 0.95,
@@ -537,13 +577,12 @@ export function googleFontsUrl(pairing: FontPairing): string {
 }
 
 /**
- * What the classifier reads when choosing a theme: the content it suits, its
- * key colours and its typeface, so the choice can weigh appearance as well as
- * subject. Kept terse on purpose — classifier latency grows with every
+ * What the classifier reads when choosing a theme: the subjects it suits, and
+ * nothing else. Kept terse on purpose — classifier latency grows with every
  * character here, across every theme.
  */
 export function describeTheme(theme: Theme): string {
-  return `${theme.description}; ${theme.look}; ${fontPairings[theme.fonts].look}`
+  return theme.description
 }
 
 /** The complete default choice a theme stands for. */

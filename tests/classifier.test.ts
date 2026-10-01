@@ -37,13 +37,13 @@ describe("judgeDocument", () => {
     expect((await judgeDocument(plan, "", classifier(vague).classify)).theme).toBeUndefined()
   })
 
-  it("describes each theme to the classifier by purpose, colours and typeface", async () => {
+  it("describes each theme to the classifier by the subjects it suits", async () => {
     const { classify, seen } = classifier({ ink: 0.9 })
     await judgeDocument(plan, "", classify)
     const question = seen[0].questions.theme
     expect(question.type).toBe("choice")
     expect(Object.keys(question.criteria)).toHaveLength(21)
-    expect((question.criteria as Record<string, string>).ocean).toBe("business reports, finance, strategy, investors; cool white, corporate blue cover, amber; Inter, neutral sans")
+    expect((question.criteria as Record<string, string>).ocean).toBe("business reports, finance, sales, strategy, investors")
   })
 
   it("turns a chart back into a table when its numbers are only there to be looked up", async () => {

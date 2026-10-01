@@ -1,5 +1,5 @@
 import { expect, it } from "vitest"
-import { describeTheme, fontPairings, themeList } from "@/stunning-md/theme/themes"
+import { describeTheme, fontPairings, themeList, themeTopics } from "@/stunning-md/theme/themes"
 
 const lum = (hex: string) => {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
@@ -76,10 +76,14 @@ it("themes do not all open the same way, or sit on the same near-white page", ()
   expect(pale.length).toBeLessThan(themeList.length / 3)
 })
 
-it("every theme names a typeface pairing and describes its look to the classifier", () => {
+it("every theme names a typeface pairing, belongs to a topic, and tells the classifier its subjects alone", () => {
   for (const theme of themeList) {
     expect(fontPairings[theme.fonts], theme.id).toBeDefined()
-    expect(describeTheme(theme)).toContain(theme.look)
-    expect(describeTheme(theme)).toContain(fontPairings[theme.fonts].look)
+    expect(themeTopics.map((topic) => topic.id), theme.id).toContain(theme.topic)
+    expect(describeTheme(theme)).toBe(theme.description)
+    expect(describeTheme(theme)).not.toContain(theme.look)
   }
+  // Latency grows with the total length of what the classifier reads.
+  expect(themeList.reduce((sum, theme) => sum + describeTheme(theme).length, 0)).toBeLessThan(1300)
+  for (const topic of themeTopics) expect(themeList.some((theme) => theme.topic === topic.id), topic.id).toBe(true)
 })

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
-import { themeList } from "../theme/themes"
+import { themeList, themeTopics } from "../theme/themes"
 import type { Appearance, PaletteId } from "../types"
 import { useStunning } from "./context"
 
@@ -261,21 +261,26 @@ export function Nav({
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Choose theme" title="Theme" />}>
                 <PaletteIcon />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" style={portal.style} className={cn(portal.className, "w-52")}>
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>Theme</DropdownMenuLabel>
-                  {themeList.map((item) => (
-                    <DropdownMenuItem key={item.id} onClick={() => onPalette(item.id)}>
-                      <span
-                        aria-hidden
-                        className="size-4 shrink-0 rounded-full ring-1 ring-foreground/15"
-                        style={{ background: `linear-gradient(135deg, ${item[appearance].bg} 50%, ${item[appearance].accent} 50%)` }}
-                      />
-                      {item.name}
-                      {item.id === theme.palette && <CheckIcon className="ml-auto" />}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuGroup>
+              <DropdownMenuContent align="end" style={portal.style} className={cn(portal.className, "max-h-[min(34rem,var(--available-height))] w-56 overflow-y-auto")}>
+                {/* Arranged by subject, so a theme is found by what the document is about. */}
+                {themeTopics.map((topic) => (
+                  <DropdownMenuGroup key={topic.id}>
+                    <DropdownMenuLabel>{topic.name}</DropdownMenuLabel>
+                    {themeList
+                      .filter((item) => item.topic === topic.id)
+                      .map((item) => (
+                        <DropdownMenuItem key={item.id} onClick={() => onPalette(item.id)}>
+                          <span
+                            aria-hidden
+                            className="size-4 shrink-0 rounded-full ring-1 ring-foreground/15"
+                            style={{ background: `linear-gradient(135deg, ${item[appearance].bg} 50%, ${(item[appearance].highlight?.bg ?? item[appearance].accent)} 50%)` }}
+                          />
+                          {item.name}
+                          {item.id === theme.palette && <CheckIcon className="ml-auto" />}
+                        </DropdownMenuItem>
+                      ))}
+                  </DropdownMenuGroup>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

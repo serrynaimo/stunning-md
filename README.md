@@ -246,7 +246,7 @@ Readers stay in control. A three-position switch in the top bar moves between th
 2. **Measure** — each image is loaded in the browser to learn its natural size. An image that cannot be measured is never promoted to a hero or full-screen layout.
 3. **Plan** — `planDocument` turns tree + image sizes into a `DocumentPlan`. It is a pure function: the same input always gives the same plan, and every section records the `reason` for its layout.
 4. **Judge** *(optional)* — `judgeDocument` asks the classifier a handful of questions and each answer is fed back into the plan as it lands:
-   - which theme suits the content — each option tells the classifier what the theme is for, its key colours and its typeface;
+   - which theme suits the content — each option tells the classifier the subjects the theme is for;
    - whether a table's numbers are measurements to compare or reference values to look up;
    - whether rows are parts of a whole (donut) or independent (bar);
    - whether the leading image is fit to be the hero.
@@ -274,7 +274,7 @@ Charts follow the theme too:
 - **Colours** — each theme's series colours are grown from its accent. The accent leads; every further colour is the candidate that stays furthest from those before it, at the accent's own intensity, so a muted theme gets muted charts and a vivid one vivid charts. Every palette must keep neighbouring series apart for readers with red-green colour-vision deficiency as well as full colour vision, sit inside a legible lightness band, and hold 3:1 contrast against the page — a unit test enforces this for all 21 themes in both modes.
 - **Drawing style** — each theme names one of four chart styles: `linework` (monochrome ink with dashes and hatching, monospaced labels), `instrument` (rounded, saturated marks on a dotted grid), `soft` (gradients and depth) or `flat` (plain solid colour).
 
-Themes are defined in `src/stunning-md/theme/themes.ts`. Each theme's `description` (what it is for) and `look` (its key colours), together with its typeface, are what the classifier reads when choosing, so adding a theme means adding one entry there. Keep those strings short: classifier latency grows with their total length.
+Themes are defined in `src/stunning-md/theme/themes.ts`, and fall into six families by subject — writing, business and official, technology, places and lifestyle, nature and health, culture and play — which is how the picker arranges them. A theme's `description`, the subjects it suits, is all the classifier reads when choosing, so adding a theme means adding one entry there. Name subjects, not moods or colours, and keep it short: on a set of documents of known subject, subjects alone picked a fitting theme more often than subjects with colours and typefaces beside them, in half the time — classifier latency grows with the total length of these strings.
 
 Themes are applied as CSS variables scoped to the component, so the page around it is unaffected.
 

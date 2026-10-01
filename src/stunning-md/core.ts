@@ -17,6 +17,6 @@ export {
   type ClassifierAnswer,
   type ClassifierAnswers,
 } from "./classifier"
-export { themes, themeList, fontPairings, fontPairingList, matchTheme, guessTheme, themeChoice, describeTheme, type Theme, type FontPairing, type HeroTone, type PaletteTokens } from "./theme/themes"
+export { themes, themeList, themeTopics, fontPairings, fontPairingList, matchTheme, guessTheme, themeChoice, describeTheme, type Theme, type FontPairing, type HeroTone, type ThemeTopic, type PaletteTokens } from "./theme/themes"
 export { createChat, chatCompletionsUrl, sortReply, settledMarkdown, wantsContent, BlockSplitter, CHAT_INSTRUCTIONS, type Chat, type ChatMessage, type TurnEvent, type TurnResult, type ReplyBlock } from "./chat"
 export type * from "./types"

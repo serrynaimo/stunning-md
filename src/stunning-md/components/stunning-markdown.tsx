@@ -320,7 +320,7 @@ function Page({
       crumb={crumb}
       contents={
         hasContents
-          ? { label: chat ? "Chat" : "Contents", description: meta, showTitle: !chat, style: chatStyle, docked: !!chat, tail, render: renderContents }
+          ? { label: "Contents", description: meta, showTitle: !chat, style: chatStyle, docked: !!chat, tail, render: renderContents }
           : null
       }
       root={root}
@@ -425,7 +425,7 @@ function Page({
             {showSidebar && (
               <Sidebar
                 id={sidebarId}
-                title={chat ? "Chat" : "Contents"}
+                title="Contents"
                 showTitle={!chat}
                 active={position.active}
                 tail={tail}

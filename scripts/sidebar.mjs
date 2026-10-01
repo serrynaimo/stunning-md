@@ -26,7 +26,7 @@ const state = async (label) => {
 }
 await state("1600 wide, on load")
 // With chat, the sidebar holds the conversation too and stays shut until there is one.
-const shut = page.getByRole("button", { name: "Show chat" })
+const shut = page.getByRole("button", { name: "Show contents" })
 if (await shut.count()) {
   await shut.click()
   await page.waitForTimeout(400)

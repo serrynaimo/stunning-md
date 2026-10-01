@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, SparklesIcon, UploadIcon } from "lucide-react"
+import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, SparklesIcon, UploadIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -271,70 +271,83 @@ export default function Home() {
         </div>
       </header>
 
-      <div
-        onDragOver={(event) => {
-          event.preventDefault()
-          setDragging(true)
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(event) => {
-          event.preventDefault()
-          setDragging(false)
-          void loadFiles([...event.dataTransfer.files])
-        }}
-        className={cn(
-          "flex flex-col items-center gap-4 rounded-2xl border border-dashed px-6 py-12 text-center transition-colors",
-          dragging ? "border-foreground bg-muted" : "border-foreground/25",
-        )}
-      >
-        <UploadIcon className="size-6 text-muted-foreground" aria-hidden />
-        <p className="text-balance">Drop a markdown file here, with its images if it has any</p>
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button size="lg" onClick={() => fileInput.current?.click()}>
-            <FileTextIcon data-icon="inline-start" />
-            Choose a file
-          </Button>
-          <Button size="lg" variant="outline" onClick={() => folderInput.current?.click()}>
-            <FolderOpenIcon data-icon="inline-start" />
-            Choose a folder
-          </Button>
-          {chat && (
-            <Button size="lg" variant="outline" onClick={() => setDoc({ name: "New page", markdown: "", assets: new Map() })}>
-              <SparklesIcon data-icon="inline-start" />
-              Start with a blank page
+      <div className="flex flex-col gap-3">
+        <div
+          onDragOver={(event) => {
+            event.preventDefault()
+            setDragging(true)
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(event) => {
+            event.preventDefault()
+            setDragging(false)
+            void loadFiles([...event.dataTransfer.files])
+          }}
+          className={cn(
+            "flex flex-col items-center gap-4 rounded-2xl border border-dashed px-6 py-12 text-center transition-colors",
+            dragging ? "border-foreground bg-muted" : "border-foreground/25",
+          )}
+        >
+          <UploadIcon className="size-6 text-muted-foreground" aria-hidden />
+          <p className="text-balance">Drop a markdown file here, with its images if it has any</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button size="lg" onClick={() => fileInput.current?.click()}>
+              <FileTextIcon data-icon="inline-start" />
+              Choose a file
             </Button>
+            <Button size="lg" variant="outline" onClick={() => folderInput.current?.click()}>
+              <FolderOpenIcon data-icon="inline-start" />
+              Choose a folder
+            </Button>
+          </div>
+          <input
+            ref={fileInput}
+            type="file"
+            multiple
+            accept=".md,.markdown,.mdx,.txt,text/markdown,image/*"
+            className="sr-only"
+            aria-label="Choose a markdown file"
+            onChange={(event) => {
+              void loadFiles([...(event.target.files ?? [])])
+              event.target.value = ""
+            }}
+          />
+          <input
+            ref={(node) => {
+              folderInput.current = node
+              node?.setAttribute("webkitdirectory", "")
+            }}
+            type="file"
+            multiple
+            className="sr-only"
+            aria-label="Choose a folder containing a markdown file"
+            onChange={(event) => {
+              void loadFiles([...(event.target.files ?? [])])
+              event.target.value = ""
+            }}
+          />
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
           )}
         </div>
-        <input
-          ref={fileInput}
-          type="file"
-          multiple
-          accept=".md,.markdown,.mdx,.txt,text/markdown,image/*"
-          className="sr-only"
-          aria-label="Choose a markdown file"
-          onChange={(event) => {
-            void loadFiles([...(event.target.files ?? [])])
-            event.target.value = ""
-          }}
-        />
-        <input
-          ref={(node) => {
-            folderInput.current = node
-            node?.setAttribute("webkitdirectory", "")
-          }}
-          type="file"
-          multiple
-          className="sr-only"
-          aria-label="Choose a folder containing a markdown file"
-          onChange={(event) => {
-            void loadFiles([...(event.target.files ?? [])])
-            event.target.value = ""
-          }}
-        />
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
+        {/* Without a file there is still a way in — but only with a model to ask. */}
+        {chat && (
+          <button
+            type="button"
+            onClick={() => setDoc({ name: "New page", markdown: "", assets: new Map() })}
+            className="group flex items-center gap-4 rounded-2xl border bg-muted/40 p-4 text-left transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-5"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-foreground text-background">
+              <SparklesIcon className="size-4" aria-hidden />
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="font-medium">Start with a blank page</span>
+              <span className="text-sm text-pretty text-muted-foreground">No file needed — ask for a page and watch it be written and laid out.</span>
+            </span>
+            <ArrowRightIcon className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden />
+          </button>
         )}
       </div>
 

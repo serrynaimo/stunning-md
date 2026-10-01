@@ -92,6 +92,30 @@ Any endpoint that accepts `{ state, questions }` with `choice`, `noul` and `scor
 
 What is sent: the title, section headings and the first 400 characters of prose; up to eight tables (header and first twelve rows each); and the leading image's alt text, file name and dimensions. The full document is never sent.
 
+### Streaming a model's answer
+
+In an AI interface the markdown arrives a little at a time. Pass what you have so far on every update and say that more is coming:
+
+```tsx
+"use client"
+import { StunningMarkdown } from "stunning-md"
+
+export function Answer({ text, done }: { text: string; done: boolean }) {
+  return <StunningMarkdown markdown={text} streaming={!done} classifier={classifier} />
+}
+```
+
+`text` is whatever your stream has produced so far — from the AI SDK's `useChat`, a `fetch` reader, anything. While `streaming` is set:
+
+- the page is laid out as the text arrives, **a section at a time**: a section appears when the next one starts, so its layout is decided once and never shifts under the reader. The opening — title and first paragraphs — appears block by block;
+- nothing half-written is shown: not the line in progress, not an open code fence or table, not unfinished frontmatter. A line under the page says which section is being written;
+- the theme is chosen **once**, from the first few hundred characters, and kept. That is less to go on than a whole document, so the choice can differ from the one the finished file would get — set `theme` (or `theme:` in frontmatter) if the look should be fixed;
+- there is no full-page loader, and updates do not reset the page. A text that starts over — a new answer in the same component — does.
+
+When `streaming` goes back to `false`, the rest of the text is laid out and the page is final.
+
+To do the same outside the component, `settledMarkdown(text)` returns the part of a growing text that is ready, and the heading being written. If your model wraps its answer in remarks ("Sure, here is…"), `sortReply` separates those from the content as it streams — that is what the chat below is built on.
+
 ### Adding chat (optional)
 
 Give the component a chat function and the page takes requests. A floating input at the bottom sends them to any OpenAI-compatible chat model; each answer is laid out below as its own designed section of the page, in a theme chosen for it, while the conversation itself lives in the sidebar.
@@ -141,6 +165,7 @@ The open document and the conversation so far are sent to the chat model with ea
 | Prop | Type | Default | |
 | --- | --- | --- | --- |
 | `markdown` | `string` | — | The document. |
+| `streaming` | `boolean` | `false` | The text is still being written; lay it out as it grows. |
 | `classifier` | `Classify` | — | Answers judgement calls; omit for rules only. |
 | `chat` | `Chat` | — | Lets the reader ask for content; answers are laid out on the page. |
 | `theme` | `Partial<ThemeChoice>` | — | Fix `palette`, `fonts` or `formality` (corner style). |
@@ -255,7 +280,7 @@ cp .env.example .env.local   # optional: add a classifier address and key
 npm run dev
 ```
 
-Samples live in `public/samples/` and open directly with `?sample=annual-report`, `kyoto`, `readme`, `essay`, `after-dark` or `roastery`.
+Samples live in `public/samples/` and open directly with `?sample=annual-report`, `kyoto`, `readme`, `essay`, `after-dark` or `roastery`. Add `&stream` — `?sample=roastery&stream` — to have the sample played out a little at a time, as a model would write it, and see the `streaming` prop at work.
 
 To try the chat, add `STUNNING_MD_CHAT_URL` and `STUNNING_MD_CHAT_MODEL` (and `STUNNING_MD_CHAT_KEY` if the provider needs one) to `.env.local`. Without a model to hand, `node scripts/mock-chat.mjs` runs a stand-in that streams canned answers at `http://localhost:3490/v1/chat/completions`. With chat available, the landing page also offers to start from a blank page.
 

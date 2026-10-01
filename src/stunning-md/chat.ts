@@ -201,6 +201,93 @@ export class BlockSplitter {
 
 }
 
+const FRONTMATTER_OPEN = /^---[ \t]*\r?\n/
+
+/**
+ * How much of a markdown text that is still being written is ready to be laid
+ * out. Given the text so far, returns the part that will not change shape as
+ * more arrives, and the heading of the section being written.
+ *
+ * A section is ready once the next one starts, so its layout is decided once.
+ * Text before the first heading, and the opening under a `# Title`, is ready a
+ * block at a time. A line, code fence or frontmatter block that is not yet
+ * closed is never included.
+ */
+export function settledMarkdown(text: string): { markdown: string; writing: string | null } {
+  let start = 0
+  if (FRONTMATTER_OPEN.test(text)) {
+    const opening = FRONTMATTER_OPEN.exec(text)![0].length
+    // Too early to tell frontmatter from a rule: wait for the line after it.
+    if (text.length === opening) return { markdown: "", writing: null }
+    if (/\S/.test(text[opening])) {
+      const close = /\n(---|\.\.\.)[ \t]*\r?\n/.exec(text.slice(opening - 1))
+      if (!close) return { markdown: "", writing: null }
+      start = opening - 1 + close.index + close[0].length
+    }
+  }
+
+  let settled = start
+  let writing: string | null = null
+  // The depth of the section being collected, if it is held back until the next one starts.
+  let open: number | null = null
+  let fence: string | null = null
+  let math = false
+  let inBlock = false
+
+  for (let at = start; ; ) {
+    const end = text.indexOf("\n", at)
+    // The last line is still being written.
+    if (end < 0) break
+    const line = text.slice(at, end).replace(/\r$/, "")
+    const lineStart = at
+    at = end + 1
+
+    const marker = FENCE.exec(line)
+    if (fence) {
+      if (marker && marker[1].startsWith(fence[0]) && marker[1].length >= fence.length && !line.trim().slice(marker[1].length).trim()) fence = null
+      continue
+    }
+    if (math) {
+      if (line.trim().endsWith("$$")) math = false
+      continue
+    }
+    if (marker) {
+      fence = marker[1]
+      inBlock = true
+      continue
+    }
+    if (line.trim().startsWith("$$") && !inBlock) {
+      math = !(line.trim().length > 2 && line.trim().endsWith("$$"))
+      inBlock = true
+      continue
+    }
+    if (!line.trim()) {
+      // Outside a section, and in the opening under a title, each block stands as soon as it ends.
+      if (open === null) settled = at
+      else if (open === 1 && inBlock) {
+        settled = at
+        open = null
+      }
+      inBlock = false
+      continue
+    }
+    const heading = HEADING.exec(line)
+    if (heading) {
+      const depth = heading[1].length
+      writing = line.replace(/^#{1,6}\s+/, "").replace(/\s+#+\s*$/, "")
+      // A sub-heading continues the open section; anything at its level or above starts a new one.
+      if (!(open !== null && open !== 1 && depth > open)) {
+        settled = lineStart
+        open = depth
+      }
+      inBlock = false
+      continue
+    }
+    inBlock = true
+  }
+  return { markdown: text.slice(0, settled), writing }
+}
+
 // --- sorting a reply into commentary and content ---------------------------------
 
 export type TurnEvent =
@@ -367,8 +454,12 @@ export async function sortReply(options: {
       open = { depth, blocks: [block.text] }
       return
     }
-    if (open) open.blocks.push(block.text)
-    else {
+    if (open) {
+      open.blocks.push(block.text)
+      // A title's section is the page's opening: it is shown once it has its first
+      // block, and what follows — up to the next heading — arrives a block at a time.
+      if (open.depth === 1) flush()
+    } else {
       released.push(block.text)
       emitContent()
     }

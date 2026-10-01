@@ -40,6 +40,11 @@ export type TurnViewProps = {
   lockTheme?: boolean
   /** What the turn was written in answer to; it helps the classifier place its subject. */
   themeContext?: string
+  /**
+   * The text to choose the theme from, when that is not simply the turn's first
+   * content — `null` for as long as there is too little of it to choose by.
+   */
+  opening?: string | null
   /** Take up at least a full window, so the turn can be scrolled to the top before it has much in it. */
   fill?: boolean
   /** Report when the top of the turn has stopped moving, so a page loader can lift. */
@@ -105,6 +110,9 @@ const NONE: string[] = []
 /** Longest a chat answer waits for the classifier's choice of theme before going ahead, in ms. */
 const THEME_PATIENCE = 5000
 
+/** The score at which the classifier's theme is accepted for an opening that gives no hint of its own. */
+const SEED_CONFIDENCE = 0.22
+
 /** How long the request shown in place of an answer takes to fade once the answer starts, in ms. */
 const ASKED_FADE = 450
 
@@ -126,6 +134,7 @@ export function TurnView({
   writing,
   lockTheme = false,
   themeContext,
+  opening,
   fill = false,
   onReady,
   classifier,
@@ -193,8 +202,10 @@ export function TurnView({
   //    Every question is asked straight away, top of the page first, and each
   //    answer is applied as it lands — nothing waits for the reader to scroll.
   //    A turn that grows asks about its theme separately, once (see below).
+  //    One that chooses its look first lets that question go ahead of the rest.
+  const awaitingTheme = lockTheme && locked === null
   useEffect(() => {
-    if (!images || !classifier || !hasText) return
+    if (!images || !classifier || !hasText || awaitingTheme) return
     const abort = new AbortController()
     const structural = planDocument({ root: parsed.root, frontmatter: parsed.frontmatter, images, idPrefix: prefix })
     judgeDocument(structural, prose, classifier, {
@@ -211,7 +222,7 @@ export function TurnView({
       setPending([])
     })
     return () => abort.abort()
-  }, [images, classifier, parsed, prose, keywordTheme, prefix, hasText, lockTheme])
+  }, [images, classifier, parsed, prose, keywordTheme, prefix, hasText, lockTheme, awaitingTheme])
 
   const plan = useMemo(
     () =>
@@ -234,7 +245,15 @@ export function TurnView({
   // and keeps it — rather than changing its mind with every section that arrives.
   // `seed` is that opening: the turn's text when it first had any.
   const [seed, setSeed] = useState<string | null>(null)
-  if (lockTheme && seed === null && hasText) setSeed(markdown)
+  // A document already on the page that starts to grow keeps the look it has.
+  const [wasLocking, setWasLocking] = useState(lockTheme)
+  if (lockTheme !== wasLocking) {
+    setWasLocking(lockTheme)
+    if (lockTheme && !locked && hasText) setLocked(suggested)
+  }
+  // Frontmatter alone says too little to choose by: wait for the first words of the text itself.
+  const seedSource = opening === undefined ? (bodyText.trim() ? markdown : null) : opening
+  if (lockTheme && seed === null && seedSource) setSeed(seedSource)
   const seedTheme = useMemo<ThemeChoice | null>(() => {
     if (seed === null) return null
     const words = `${toText(parseMarkdown(seed).root)} ${themeContext ?? ""}`
@@ -252,6 +271,9 @@ export function TurnView({
     judgeDocument(planDocument({ root: opening.root, frontmatter: opening.frontmatter, idPrefix: prefix }), proseOf(opening.root), classifier, {
       themeOnly: true,
       themeHint: seedTheme.palette === "paper" ? undefined : seedTheme.palette,
+      // An opening is short and often has no telling words of its own; with nothing
+      // else to go on, the classifier's leading choice is taken on less certainty.
+      confidence: seedTheme.palette === "paper" ? SEED_CONFIDENCE : undefined,
       context: themeContext,
     }).then(
       (judgement) => settle({ ...seedTheme, ...judgement.theme }),

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { cn } from "@/lib/utils"
-import type { Chat } from "../chat"
+import { settledMarkdown, type Chat } from "../chat"
 import type { Classify } from "../classifier"
 import { chartThemeFor } from "../theme/chart"
 import { fontPairings, googleFontsUrl, themeChoice, themeVars } from "../theme/themes"
@@ -16,6 +16,13 @@ import { useChatSession } from "./use-chat"
 export type StunningMarkdownProps = {
   /** The document to show. May be empty when `chat` is given: the page then starts blank. */
   markdown: string
+  /**
+   * The text is still being written — by a model, say — and `markdown` will
+   * keep growing. The page is then laid out as the text arrives: a section at a
+   * time, as each is completed, in a theme chosen once from the opening. Pass
+   * the text so far on every update, and `false` (or nothing) when it is done.
+   */
+  streaming?: boolean
   /**
    * Turns the page into a conversation: a floating input sends requests to this
    * function, and each answer is laid out below as content while the model's
@@ -95,6 +102,10 @@ function useWide(target: React.RefObject<HTMLElement | null>, minWidth: number):
 /** The look of the chat itself — sidebar and input — whatever the turns are wearing. */
 const CHAT_THEME = themeChoice("ink")
 
+/** How much of a document that is still being written must be there before its theme is chosen, in characters. */
+const OPENING_LENGTH = 300
+const FRONTMATTER = /^---[ \t]*\r?\n[\s\S]*?\n(---|\.\.\.)[ \t]*(\r?\n|$)/
+
 /** The opened document is the first thing on the page; chat turns follow it. */
 const DOCUMENT = "doc"
 
@@ -106,6 +117,7 @@ const opening = (text: string) => {
 
 function Page({
   markdown,
+  streaming = false,
   chat,
   chatAccessory,
   editable = false,
@@ -131,7 +143,19 @@ function Page({
   // Clearing the page removes the document too, not just the conversation.
   const [cleared, setCleared] = useState(false)
 
-  const hasDocument = markdown.trim().length > 0 && !cleared
+  // A document that arrives a little at a time is shown as far as it is complete.
+  // Having grown on the page, it keeps the look it chose at the start — and there
+  // was never a finished page to hold back behind a loader.
+  const [streamed, setStreamed] = useState(streaming)
+  if (streaming && !streamed) setStreamed(true)
+  const settled = useMemo(() => (streaming ? settledMarkdown(markdown) : null), [streaming, markdown])
+  const shown = settled ? settled.markdown : markdown
+  const writing = settled?.writing ?? null
+  // Its theme is chosen from everything written so far — once that is enough to
+  // choose by, or all there is going to be.
+  const themeBasis = !streaming || markdown.replace(FRONTMATTER, "").trim().length >= OPENING_LENGTH ? markdown : null
+
+  const hasDocument = (streaming || markdown.trim().length > 0) && !cleared
   // Where the reader was before a turn took them to its place on the page.
   const before = useRef(0)
   const session = useChatSession({
@@ -155,12 +179,12 @@ function Page({
   // The turns on the page, top to bottom. A turn with nothing to show takes no room.
   const turns = useMemo(
     () => [
-      ...(hasDocument ? [{ id: DOCUMENT, prefix: "", markdown, streaming: false, waiting: false, writing: null as string | null, request: "" }] : []),
+      ...(hasDocument ? [{ id: DOCUMENT, prefix: "", markdown: shown, streaming, waiting: streaming && !markdown.trim(), writing, request: "" }] : []),
       ...session.turns
         .filter((turn) => (turn.streaming && !turn.unanswered) || turn.markdown.trim())
         .map((turn) => ({ ...turn, prefix: `${turn.id}-` })),
     ],
-    [hasDocument, markdown, session.turns],
+    [hasDocument, shown, streaming, markdown, writing, session.turns],
   )
 
   const report = useCallback(
@@ -286,7 +310,7 @@ function Page({
   }
 
   // The document is laid out under a loader until its top has settled; a blank page has nothing to wait for.
-  const ready = !hasDocument || documentReady
+  const ready = !hasDocument || documentReady || streamed
   const markReady = useCallback(() => setDocumentReady(true), [])
 
   const nav = (
@@ -353,19 +377,20 @@ function Page({
                       // With the conversation out of view, the turn itself shows what was asked.
                       asked={showSidebar || showSheet ? undefined : turn.request || undefined}
                       writing={turn.writing}
-                      lockTheme={turn.id !== DOCUMENT}
+                      lockTheme={turn.id !== DOCUMENT || streamed}
                       themeContext={turn.request || undefined}
+                      opening={turn.id === DOCUMENT && streamed ? themeBasis : undefined}
                       // The newest answer gets a full window to itself, so it can be brought to
                       // the top as soon as it starts and its content arrives in view.
                       fill={turn.id !== DOCUMENT && index === turns.length - 1}
-                      onReady={turn.id === DOCUMENT ? markReady : undefined}
+                      onReady={turn.id === DOCUMENT && !streamed ? markReady : undefined}
                       classifier={classifier}
                       fixedTheme={fixedTheme}
                       palettePick={palettePicks[turn.id] ?? null}
                       appearance={appearance}
                       resolveUrl={resolveUrl}
                       controls={controls}
-                      editable={editable && turn.id === DOCUMENT}
+                      editable={editable && turn.id === DOCUMENT && !streaming}
                       loadFonts={loadFonts}
                       settleMs={settleMs}
                       maxWaitMs={maxWaitMs}
@@ -423,14 +448,18 @@ function Page({
  * requests, and lays each answer out below as it is written.
  */
 export function StunningMarkdown(props: StunningMarkdownProps) {
-  const { markdown, onMarkdownChange } = props
+  const { markdown, streaming = false, onMarkdownChange } = props
   // A different document starts from a clean slate — no stale sizes, judgements,
   // picks or conversation. The reader's own edit coming back through the
-  // `markdown` prop is the same document, and must not reset anything.
-  const [identity, setIdentity] = useState<{ markdown: string; key: number; echo: string | null }>({ markdown, key: 0, echo: null })
+  // `markdown` prop is the same document, and must not reset anything. Nor must
+  // a document that is still being written, for as long as it carries on from
+  // what was there; one that starts over is a new document.
+  const [identity, setIdentity] = useState<{ markdown: string; streaming: boolean; key: number; echo: string | null }>({ markdown, streaming, key: 0, echo: null })
   let current = identity
-  if (markdown !== identity.markdown) {
-    current = { markdown, key: markdown === identity.echo ? identity.key : identity.key + 1, echo: identity.echo }
+  if (markdown !== identity.markdown || streaming !== identity.streaming) {
+    const grows = (streaming || identity.streaming) && markdown.startsWith(identity.markdown.slice(0, 64))
+    const same = markdown === identity.markdown || markdown === identity.echo || grows
+    current = { markdown, streaming, key: same ? identity.key : identity.key + 1, echo: identity.echo }
     setIdentity(current)
   }
   const handleChange = useCallback(

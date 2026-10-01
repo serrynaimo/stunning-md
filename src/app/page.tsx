@@ -41,6 +41,30 @@ type Loaded = {
   /** Where relative URLs in the document point: a folder on this site, or picked files. */
   base?: string
   assets: Map<string, string>
+  /** Play the document out a little at a time, as a model would write it. */
+  typed?: boolean
+}
+
+/** Characters added per tick, and the ticks' spacing in ms, when a document is played out. */
+const TYPING = { step: 28, every: 30 }
+
+/**
+ * Hands a text over a little at a time, the way a model writes one — to show
+ * what the `streaming` prop does with a document that is still arriving.
+ */
+function useTyped(text: string, enabled: boolean): { text: string; streaming: boolean } {
+  const [progress, setProgress] = useState({ text, length: 0 })
+  const length = progress.text === text ? progress.length : 0
+  const done = length >= text.length
+  useEffect(() => {
+    if (!enabled || done) return
+    const timer = setInterval(
+      () => setProgress((now) => ({ text, length: Math.min(text.length, (now.text === text ? now.length : 0) + TYPING.step) })),
+      TYPING.every,
+    )
+    return () => clearInterval(timer)
+  }, [text, enabled, done])
+  return enabled ? { text: text.slice(0, length), streaming: !done } : { text, streaming: false }
 }
 
 /** This site's own classifier, reached through a server route that holds the key. */
@@ -97,6 +121,7 @@ export default function Home() {
     [ownChat],
   )
   const chat = siteChatState === "configured" ? siteChat : ownChatFn
+  const typed = useTyped(doc?.markdown ?? "", !!doc?.typed)
   const fileInput = useRef<HTMLInputElement>(null)
   const folderInput = useRef<HTMLInputElement>(null)
 
@@ -141,13 +166,15 @@ export default function Home() {
   }, [])
 
   // `?sample=kyoto` opens a sample directly — handy for sharing and testing.
+  // With `&stream` it is played out as if a model were writing it.
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("sample")
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get("sample")
     if (!id || !SAMPLES.some((sample) => sample.id === id)) return
     let live = true
     fetch(`${BASE}/samples/${id}.md`)
       .then((response) => (response.ok ? response.text() : Promise.reject(new Error(String(response.status)))))
-      .then((markdown) => live && setDoc({ name: `${id}.md`, markdown, base: `${BASE}/samples/`, assets: new Map() }))
+      .then((markdown) => live && setDoc({ name: `${id}.md`, markdown, base: `${BASE}/samples/`, assets: new Map(), typed: params.has("stream") }))
       .catch(() => live && setError(`Could not load the “${id}” sample.`))
     return () => {
       live = false
@@ -179,7 +206,8 @@ export default function Home() {
     return (
       <>
         <StunningMarkdown
-          markdown={doc.markdown}
+          markdown={typed.text}
+          streaming={typed.streaming}
           classifier={classifier}
           chat={chat}
           chatAccessory={

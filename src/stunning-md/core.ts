@@ -18,5 +18,5 @@ export {
   type ClassifierAnswers,
 } from "./classifier"
 export { themes, themeList, fontPairings, fontPairingList, matchTheme, guessTheme, themeChoice, describeTheme, type Theme, type FontPairing } from "./theme/themes"
-export { createChat, chatCompletionsUrl, sortReply, BlockSplitter, CHAT_INSTRUCTIONS, type Chat, type ChatMessage, type TurnEvent, type TurnResult, type ReplyBlock } from "./chat"
+export { createChat, chatCompletionsUrl, sortReply, settledMarkdown, BlockSplitter, CHAT_INSTRUCTIONS, type Chat, type ChatMessage, type TurnEvent, type TurnResult, type ReplyBlock } from "./chat"
 export type * from "./types"

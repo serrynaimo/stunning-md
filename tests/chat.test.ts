@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { BlockSplitter, createChat, sortReply, type TurnEvent } from "@/stunning-md/chat"
+import { BlockSplitter, createChat, settledMarkdown, sortReply, type TurnEvent } from "@/stunning-md/chat"
 import type { ClassifierAnswers, ClassifierRequest } from "@/stunning-md/classifier"
 
 /** Feeds text a few characters at a time, the way a model streams it. */
@@ -285,5 +285,103 @@ describe("replies that are not answers", () => {
     }
     const answered = await collect("Sure — here it is.\n\n## Q4\n\n- Up 12%")
     expect(answered.events.some((e) => e.type === "answer")).toBe(false)
+  })
+})
+
+describe("settledMarkdown", () => {
+  const DOC = `# Pour-over at home
+
+A calm way to make one very good cup.
+
+It takes three minutes.
+
+## What you need
+
+- A dripper and paper filters
+- A kettle
+
+### Filters
+
+Rinse them first.
+
+## Brewing
+
+\`\`\`text
+bloom 30s
+
+## not a heading
+\`\`\`
+
+Pour slowly.
+`
+  /** What is ready at every point as the text arrives one character at a time. */
+  const stages = (text: string) => {
+    const seen: string[] = []
+    for (let i = 0; i <= text.length; i++) {
+      const { markdown } = settledMarkdown(text.slice(0, i))
+      if (markdown !== seen[seen.length - 1]) seen.push(markdown)
+    }
+    return seen
+  }
+
+  it("only ever adds to what it has released, and only whole lines of the text", () => {
+    const seen = stages(DOC)
+    for (let i = 1; i < seen.length; i++) expect(seen[i].startsWith(seen[i - 1])).toBe(true)
+    for (const stage of seen) {
+      expect(DOC.startsWith(stage)).toBe(true)
+      expect(stage === "" || stage.endsWith("\n")).toBe(true)
+    }
+  })
+
+  it("shows a title once it has its first paragraph, then the opening a block at a time", () => {
+    const seen = stages(DOC)
+    expect(seen[1].trim()).toBe("# Pour-over at home\n\nA calm way to make one very good cup.")
+    expect(seen[2].trim().endsWith("It takes three minutes.")).toBe(true)
+  })
+
+  it("holds a section back until the next one starts, sub-headings included", () => {
+    const seen = stages(DOC).map((stage) => stage.trim())
+    expect(seen.some((stage) => stage.endsWith("- A kettle"))).toBe(false)
+    expect(seen.some((stage) => stage.endsWith("### Filters"))).toBe(false)
+    expect(seen[3].endsWith("Rinse them first.")).toBe(true)
+    // The last section is still open when the text stops: it is the caller's to show once the stream ends.
+    expect(seen[seen.length - 1].endsWith("Rinse them first.")).toBe(true)
+  })
+
+  it("does not take a heading inside a code fence for a new section", () => {
+    const upTo = DOC.indexOf("## not a heading") + 20
+    expect(settledMarkdown(DOC.slice(0, upTo))).toEqual({ markdown: DOC.slice(0, DOC.indexOf("## Brewing")), writing: "Brewing" })
+  })
+
+  it("names the section being written", () => {
+    expect(settledMarkdown("# Title\n\nLead.\n\n## First part\n\nSome te").writing).toBe("First part")
+    expect(settledMarkdown("Just a paragraph so far").writing).toBeNull()
+  })
+
+  it("releases text without headings a paragraph at a time", () => {
+    expect(settledMarkdown("One.\n\nTwo.\n\nThr").markdown).toBe("One.\n\nTwo.\n\n")
+  })
+
+  it("waits for frontmatter to close, and keeps it with the text", () => {
+    expect(settledMarkdown("---\ntitle: A report\ntheme: oce").markdown).toBe("")
+    const text = "---\ntitle: A report\n---\n\nFirst paragraph.\n\nSecond"
+    expect(settledMarkdown(text).markdown).toBe("---\ntitle: A report\n---\n\nFirst paragraph.\n\n")
+  })
+
+  it("does not mistake a rule at the top for frontmatter", () => {
+    expect(settledMarkdown("---\n\nA paragraph.\n\nMore").markdown).toBe("---\n\nA paragraph.\n\n")
+  })
+})
+
+describe("a title's section in a reply", () => {
+  it("is shown with its first paragraph rather than held until the next heading", async () => {
+    const events: TurnEvent[] = []
+    await sortReply({
+      stream: streamOf("# A long essay\n\nFirst paragraph of several.\n\nSecond paragraph.\n\nThird paragraph."),
+      onEvent: (event) => events.push(event),
+    })
+    const contents = events.filter((event) => event.type === "content").map((event) => (event.type === "content" ? event.markdown : ""))
+    expect(contents[0]).toBe("# A long essay\n\nFirst paragraph of several.")
+    expect(contents.length).toBeGreaterThanOrEqual(2)
   })
 })

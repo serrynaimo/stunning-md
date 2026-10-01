@@ -178,7 +178,7 @@ export function ChatDock({
   return (
     <div className="smd-chat-dock" data-accessory={accessory ? "" : undefined} data-over={over || undefined} style={style}>
       {/* Still announced when the conversation is in view; just not shown twice. */}
-      <div className={quiet ? "sr-only" : "smd-chat-notes"} aria-live="polite">
+      <div className="smd-chat-notes" data-quiet={quiet || undefined} aria-live="polite">
         {notes.map((note) => (
           <div key={note.id} className="smd-chat-note">
             <Remark text={note.text} />

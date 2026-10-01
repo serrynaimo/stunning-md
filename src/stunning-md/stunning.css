@@ -329,11 +329,19 @@
   width: 1rem;
   height: 1rem;
 }
+/* Remarks take no room of their own: they stand on the input's top edge and
+   reach up over the page, so the page does not move when they come and go. */
 .smd-chat-notes {
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   align-items: flex-start;
   gap: 0.4rem;
+  height: 0;
+}
+/* With the conversation in view they are not shown a second time — only announced. */
+.smd-chat-notes[data-quiet] {
+  overflow: hidden;
 }
 .smd-chat-note {
   max-width: 100%;

@@ -872,10 +872,20 @@
 .smd-section-menu {
   position: absolute;
   top: 0.75rem;
-  right: max(0.75rem, calc((100% - var(--smd-max)) / 2 - 2.5rem));
+  /* In the margin just outside the text column — not out at the far edge, where
+     it is lost against the window frame or a sidebar's border. */
+  right: max(0.75rem, calc((100% - min(100% - 2 * var(--smd-gutter), var(--smd-max))) / 2 - 2.5rem));
   z-index: 5;
-  color: var(--muted-foreground);
-  opacity: 0.55;
+  color: var(--foreground);
+  opacity: 0.6;
+}
+/* Over a photograph it needs a ground of its own to be seen at all. */
+.smd-section[data-layout="fullbleed"] > .smd-section-menu {
+  background: rgb(0 0 0 / 0.42);
+  color: #fff;
+  opacity: 0.9;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .smd-section:hover > .smd-section-menu,
 .smd-section-menu:focus-visible,

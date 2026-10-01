@@ -10,6 +10,8 @@ export type ChatTurn = {
   /** The answer so far — complete sections only, commentary removed. */
   markdown: string
   streaming: boolean
+  /** Nothing has come back from the model yet. */
+  waiting: boolean
   /** The section being written right now. */
   writing: string | null
   /** What the reader asked for. */
@@ -89,13 +91,26 @@ export function useChatSession(options: {
 
       setBusy(true)
       setItems((all) => [...all, { id: `${turnId}-u`, type: "user", text: request }])
-      setTurns((all) => [...all, { id: turnId, markdown: "", streaming: true, writing: null, request, unanswered: false }])
+      setTurns((all) => [...all, { id: turnId, markdown: "", streaming: true, waiting: true, writing: null, request, unanswered: false }])
       onTurnStart?.(turnId)
 
       const messages: ChatMessage[] = [{ role: "system", content: CHAT_INSTRUCTIONS + documentContext(document) }, ...history.current, { role: "user", content: request }]
 
+      // The first text to come back ends the wait, well before a whole paragraph is ready to be sorted.
+      const reply = chat(messages, controller.signal)
+      const heard = (async function* () {
+        let first = true
+        for await (const chunk of reply) {
+          if (first && chunk) {
+            first = false
+            patch({ waiting: false })
+          }
+          yield chunk
+        }
+      })()
+
       sortReply({
-        stream: chat(messages, controller.signal),
+        stream: heard,
         request,
         classify: classifier,
         signal: controller.signal,
@@ -131,7 +146,7 @@ export function useChatSession(options: {
         )
         .finally(() => {
           if (abort.current === controller) abort.current = null
-          patch({ streaming: false, writing: null })
+          patch({ streaming: false, waiting: false, writing: null })
           // A reply that was all conversation leaves nothing on the page.
           if (!referenced && !vacated) onTurnEmpty?.(turnId)
           setBusy(false)

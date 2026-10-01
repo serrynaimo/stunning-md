@@ -155,7 +155,7 @@ function Page({
   // The turns on the page, top to bottom. A turn with nothing to show takes no room.
   const turns = useMemo(
     () => [
-      ...(hasDocument ? [{ id: DOCUMENT, prefix: "", markdown, streaming: false, writing: null as string | null, request: "" }] : []),
+      ...(hasDocument ? [{ id: DOCUMENT, prefix: "", markdown, streaming: false, waiting: false, writing: null as string | null, request: "" }] : []),
       ...session.turns
         .filter((turn) => (turn.streaming && !turn.unanswered) || turn.markdown.trim())
         .map((turn) => ({ ...turn, prefix: `${turn.id}-` })),
@@ -344,6 +344,7 @@ function Page({
                       prefix={turn.prefix}
                       markdown={turn.markdown}
                       streaming={turn.streaming}
+                      waiting={turn.waiting}
                       writing={turn.writing}
                       lockTheme={turn.id !== DOCUMENT}
                       themeContext={turn.request || undefined}

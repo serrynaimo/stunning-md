@@ -27,6 +27,8 @@ export type TurnViewProps = {
   markdown: string
   /** More of this turn is still being written. */
   streaming?: boolean
+  /** Nothing has come back from the model yet. */
+  waiting?: boolean
   /** The section being written, shown while `streaming`. */
   writing?: string | null
   /** Choose the theme once, from the first content, and keep it as the turn grows. */
@@ -111,6 +113,7 @@ export function TurnView({
   prefix,
   markdown: given,
   streaming = false,
+  waiting = false,
   writing,
   lockTheme = false,
   themeContext,
@@ -347,7 +350,7 @@ export function TurnView({
         {streaming && (
           <p className="smd-writing" role="status">
             <span className="smd-loader-mark" aria-hidden />
-            {writing ? `Writing “${writing}” ...` : "Stunnifying ..."}
+            {waiting ? "Waiting for first response ..." : writing ? `Writing “${writing}” ...` : "Stunnifying ..."}
           </p>
         )}
       </article>

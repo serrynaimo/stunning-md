@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, SparklesIcon, UploadIcon } from "lucide-react"
+import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, SparklesIcon, UploadIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -30,8 +30,6 @@ const MARKDOWN = /\.(md|markdown|mdx|txt)$/i
 
 /** Sub-path the site is served from, e.g. "/stunning-md" on GitHub Pages. */
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
-/** In development Next.js shows its own badge in the bottom-left corner. */
-const DEV = process.env.NODE_ENV === "development"
 /** A static export has no server, so no classifier of its own — only one the reader adds. */
 const STATIC = process.env.NEXT_PUBLIC_STATIC_EXPORT === "1"
 
@@ -220,20 +218,15 @@ export default function Home() {
           // A cleared page is no longer the file that was opened.
           onClear={() => setDoc((current) => current && { ...current, name: "New page" })}
         />
-        {/* Without chat there is no input box to sit beside, so the button takes the corner. */}
+        {/* Without a model to ask there is no input: just the open file's name, and the way back. */}
         {!chat && (
-          <button
-            type="button"
-            onClick={close}
-            aria-label={label}
-            title={label}
-            className={cn(
-              "fixed bottom-4 z-50 grid size-12 place-items-center rounded-full border bg-background/90 shadow-lg backdrop-blur transition-colors hover:bg-muted",
-              DEV ? "left-16" : "left-4",
-            )}
-          >
-            <FileTextIcon className="size-4" aria-hidden />
-          </button>
+          <div className="fixed bottom-4 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-1 rounded-full border bg-background/90 py-1 pr-1 pl-3.5 text-sm shadow-lg backdrop-blur">
+            <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="min-w-0 truncate">{doc.name}</span>
+            <Button variant="ghost" size="icon-sm" className="shrink-0 rounded-full" onClick={close} aria-label="Close document and open another" title="Close">
+              <XIcon />
+            </Button>
+          </div>
         )}
       </>
     )

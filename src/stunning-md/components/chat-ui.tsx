@@ -196,7 +196,7 @@ export function ChatDock({
               ref={field}
               rows={1}
               value={value}
-              placeholder="Ask for something to add to the page"
+              placeholder="Ask for something ..."
               aria-label="Message"
               onChange={(event) => setValue(event.target.value)}
               onKeyDown={(event) => {

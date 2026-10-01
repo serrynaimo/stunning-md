@@ -47,7 +47,7 @@ function PlainTable({ node }: { node: Table }) {
 export function PlainDocument({ root, toc }: { root: Root; toc: TocEntry[] }) {
   const remaining = [...toc]
   return (
-    <main className="smd-plain">
+    <div className="smd-plain">
       {root.children.map((node, index) => {
         if (node.type === "heading") {
           const text = toText(node).trim()
@@ -63,7 +63,7 @@ export function PlainDocument({ root, toc }: { root: Root; toc: TocEntry[] }) {
         if (node.type === "table") return <PlainTable key={index} node={node} />
         return <FlowNode key={index} node={node} />
       })}
-    </main>
+    </div>
   )
 }
 
@@ -74,7 +74,7 @@ export function PlainDocument({ root, toc }: { root: Root; toc: TocEntry[] }) {
  */
 export function SourceView({ value, onChange }: { value: string; onChange?: (value: string) => void }) {
   return (
-    <main className="smd-source">
+    <div className="smd-source">
       <div className="smd-source-tools">
         {onChange && <p>Edit the text, then switch view to see it rendered.</p>}
         <CopyButton text={() => value} label="Copy markdown" />
@@ -93,6 +93,6 @@ export function SourceView({ value, onChange }: { value: string; onChange?: (val
       ) : (
         <pre tabIndex={0}>{value}</pre>
       )}
-    </main>
+    </div>
   )
 }

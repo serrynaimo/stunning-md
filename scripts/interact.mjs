@@ -45,7 +45,7 @@ await page.screenshot({ path: `${S}/i-share-bar.png` })
 await page.close()
 // 5. Mobile: contents sheet and navigation.
 page = await open("kyoto", 390, 844)
-await page.getByRole("button", { name: "Open table of contents" }).click()
+await page.getByRole("button", { name: /^Open (contents|chat)$/ }).click()
 await page.waitForTimeout(600)
 await page.screenshot({ path: `${S}/i-toc-mobile.png` })
 await page.getByRole("link", { name: "What it costs" }).click()

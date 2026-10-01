@@ -19,7 +19,7 @@ const state = async (label) => {
       content: Math.round(content.getBoundingClientRect().width),
       current: side?.querySelector("[aria-current]")?.textContent ?? null,
       overflowX: document.documentElement.scrollWidth > innerWidth,
-      sheetButton: !!document.querySelector('[aria-label="Open table of contents"]'),
+      sheetButton: !!document.querySelector('[aria-label^="Open c"]'),
     }
   })
   console.log(label.padEnd(34), JSON.stringify(s))
@@ -31,10 +31,10 @@ await page.waitForTimeout(900)
 await state("after clicking a sidebar link")
 console.log("scrolled to section:", await page.evaluate(() => Math.round(document.getElementById("regional-performance").getBoundingClientRect().top)), "px from top; hash", await page.evaluate(() => location.hash))
 await page.screenshot({ path: `${out}/sidebar-1600-scrolled.png` })
-await page.getByRole("button", { name: "Hide table of contents" }).click()
+await page.getByRole("button", { name: /^Hide (contents|chat)$/ }).click()
 await page.waitForTimeout(400)
 await state("after hiding")
-await page.getByRole("button", { name: "Show table of contents" }).click()
+await page.getByRole("button", { name: /^Show (contents|chat)$/ }).click()
 await page.waitForTimeout(400)
 await state("after showing again")
 await page.setViewportSize({ width: 1440, height: 900 })
@@ -43,7 +43,7 @@ await state("resized to 1440")
 await page.setViewportSize({ width: 1280, height: 860 })
 await page.waitForTimeout(500)
 await state("resized to 1280")
-await page.getByRole("button", { name: "Open table of contents" }).click()
+await page.getByRole("button", { name: /^Open (contents|chat)$/ }).click()
 await page.waitForTimeout(500)
 console.log("sheet opens at 1280:", await page.locator(".smd-toc").count() === 1)
 console.log(errors.length ? errors.join("\n") : "no console errors")

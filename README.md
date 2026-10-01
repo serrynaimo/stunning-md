@@ -92,18 +92,58 @@ Any endpoint that accepts `{ state, questions }` with `choice`, `noul` and `scor
 
 What is sent: the title, section headings and the first 400 characters of prose; up to eight tables (header and first twelve rows each); and the leading image's alt text, file name and dimensions. The full document is never sent.
 
+### Adding chat (optional)
+
+Give the component a chat function and the page takes requests. A floating input at the bottom sends them to any OpenAI-compatible chat model; each answer is laid out below as its own designed section of the page, in a theme chosen for it, while the conversation itself lives in the sidebar.
+
+```ts
+// app/api/chat/route.ts
+import { createChatHandler } from "stunning-md/server"
+
+export const POST = createChatHandler({
+  url: process.env.STUNNING_MD_CHAT_URL, // the full …/chat/completions address
+  model: process.env.STUNNING_MD_CHAT_MODEL,
+  apiKey: process.env.STUNNING_MD_CHAT_KEY, // optional — a local model needs none
+})
+```
+
+```tsx
+"use client"
+import { StunningMarkdown, createChat, createClassifier } from "stunning-md"
+
+const chat = createChat({ endpoint: "/api/chat" })
+const classifier = createClassifier({ endpoint: "/api/classify" })
+
+export function Document({ markdown }: { markdown: string }) {
+  return <StunningMarkdown markdown={markdown} chat={chat} classifier={classifier} />
+}
+```
+
+`markdown` may be an empty string: the page then starts blank and fills as you ask.
+
+A model's reply is sorted as it streams, block by block, into two kinds of text:
+
+- **Content** — the thing that was asked for — is rendered on the page by the usual rules. It appears a section at a time, as each section is completed, so a section's layout is decided once and does not shift. Turns are set apart by a band of bare page, black or white with the mode.
+- **Commentary** — the model talking about its answer ("Sure, here is…", "Let me know if…") — is shown briefly above the input, then fades. It stays in the sidebar, where the whole conversation is kept in order: your messages, the model's remarks, and, in place of each answer, a short list of the headings it put on the page, which jump to them.
+
+Headings, lists, tables, code and images are always content. A plain paragraph is judged by where it sits and how it reads: remarks come at the start or the end of a reply and usually announce themselves. The classifier is asked about the unclear ones — on its own it is not a reliable judge of this, so it never overrules both position and wording. Without a classifier, the first paragraph of a reply is taken as commentary, and so is the last.
+
+The open document and the conversation so far are sent to the chat model with each request. A button beside the input clears the page — document and conversation — to start again.
+
 ### Props
 
 | Prop | Type | Default | |
 | --- | --- | --- | --- |
 | `markdown` | `string` | — | The document. |
 | `classifier` | `Classify` | — | Answers judgement calls; omit for rules only. |
+| `chat` | `Chat` | — | Lets the reader ask for content; answers are laid out on the page. |
 | `theme` | `Partial<ThemeChoice>` | — | Fix `palette`, `fonts` or `formality` (corner style). |
 | `appearance` | `"auto" \| "light" \| "dark"` | `"auto"` | `auto` follows the system setting. |
 | `resolveUrl` | `(url: string) => string` | identity | Map URLs in the markdown to loadable ones. |
 | `controls` | `boolean` | `true` | Show the view switch and the theme, layout and chart pickers. |
 | `editable` | `boolean` | `false` | Let the reader edit the text in the markdown view. |
 | `onMarkdownChange` | `(markdown: string) => void` | — | Called when the reader's edits are applied. |
+| `onClear` | `() => void` | — | Called when the reader clears the page from the chat input. |
 | `loadFonts` | `boolean` | `true` | Load the theme's typefaces from Google Fonts. |
 | `settleMs` | `number` | `2500` | Longest wait for an image to report its size. |
 | `maxWaitMs` | `number` | `8000` | Longest the loader waits for the classifier and fonts. |
@@ -116,9 +156,9 @@ A theme can also be set per document, in frontmatter: `theme: midnight`.
 
 | Import | Contents | Runs |
 | --- | --- | --- |
-| `stunning-md` | `StunningMarkdown`, `createClassifier`, themes, and everything in `core` | In the browser |
-| `stunning-md/core` | `parseMarkdown`, `planDocument`, table inference, `judgeDocument`, theme data | Anywhere — no React |
-| `stunning-md/server` | `createClassifierHandler` | On the server |
+| `stunning-md` | `StunningMarkdown`, `createClassifier`, `createChat`, themes, and everything in `core` | In the browser |
+| `stunning-md/core` | `parseMarkdown`, `planDocument`, table inference, `judgeDocument`, `sortReply`, theme data | Anywhere — no React |
+| `stunning-md/server` | `createClassifierHandler`, `createChatHandler` | On the server |
 | `stunning-md/styles.css` | All styles for the component | — |
 
 The analysis is plain TypeScript and useful on its own:
@@ -210,7 +250,9 @@ npm run dev
 
 Samples live in `public/samples/` and open directly with `?sample=annual-report`, `kyoto`, `readme`, `essay`, `after-dark` or `roastery`.
 
-If the server has no classifier configured, the landing page offers a form for the visitor's own endpoint and key. Those are checked with one test question, kept only in that browser's `localStorage`, and sent straight from the browser to the endpoint — never through this site's server. The endpoint therefore has to allow cross-origin requests.
+To try the chat, add `STUNNING_MD_CHAT_URL` and `STUNNING_MD_CHAT_MODEL` (and `STUNNING_MD_CHAT_KEY` if the provider needs one) to `.env.local`. Without a model to hand, `node scripts/mock-chat.mjs` runs a stand-in that streams canned answers at `http://localhost:3490/v1/chat/completions`. With chat available, the landing page also offers to start from a blank page.
+
+If the server has no classifier or chat model configured, the landing page offers a form for the visitor's own — an endpoint and key for the classifier; an address, model name and optional key for chat. Those are checked with one test question, kept only in that browser's `localStorage`, and sent straight from the browser to the endpoint — never through this site's server. The endpoint therefore has to allow cross-origin requests.
 
 ### Hosting it on GitHub Pages
 
@@ -229,6 +271,7 @@ src/stunning-md/          the library
   parse.ts                markdown → mdast, HTML clean-up, frontmatter
   analyze/                layout planning, table inference, image probing
   classifier.ts           questions, client, applying answers
+  chat.ts                 chat client, and sorting a reply into commentary and content
   theme/                  palettes, typefaces, chart colours and styles
   components/             React rendering
   stunning.css            typography and layouts, scoped to .smd

@@ -2,22 +2,26 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { cn } from "@/lib/utils"
-import { probeImages } from "../analyze/images"
-import { collectImageUrls, planDocument, type ImageMetaMap } from "../analyze/plan"
-import { proseOf, toText } from "../analyze/text"
-import { judgeDocument, type Classify } from "../classifier"
-import { parseMarkdown } from "../parse"
+import type { Chat } from "../chat"
+import type { Classify } from "../classifier"
 import { chartThemeFor } from "../theme/chart"
-import { fontPairings, googleFontsUrl, matchTheme, themeChoice, themes, themeVars } from "../theme/themes"
-import type { Appearance, DocumentPlan, Judgements, PaletteId, SectionLayout, ThemeChoice, VizKind } from "../types"
+import { themeChoice, themeVars } from "../theme/themes"
+import type { Appearance, DocumentPlan, PaletteId, ThemeChoice, TocEntry } from "../types"
+import { ChatDock, SidebarContents } from "./chat-ui"
 import { StunningProvider, type StunningContext } from "./context"
-import { HeroView } from "./hero"
-import { Nav, TocSidebar, useReadingPosition, type View } from "./nav"
-import { PlainDocument, SourceView } from "./plain"
-import { SectionView } from "./section"
+import { Nav, Sidebar, scrollToId, useReadingPosition, type View } from "./nav"
+import { TurnView, type TurnReport } from "./turn"
+import { useChatSession } from "./use-chat"
 
 export type StunningMarkdownProps = {
+  /** The document to show. May be empty when `chat` is given: the page then starts blank. */
   markdown: string
+  /**
+   * Turns the page into a conversation: a floating input sends requests to this
+   * function, and each answer is laid out below as content while the model's
+   * remarks about it stay in the sidebar.
+   */
+  chat?: Chat
   /**
    * Answers the judgement calls structure cannot settle (theme, typography,
    * ambiguous tables, hero image). Without it everything is decided by rules.
@@ -45,12 +49,15 @@ export type StunningMarkdownProps = {
    * sections have stopped moving. Default 8000.
    */
   maxWaitMs?: number
+  /** Called when the reader clears the page with the button beside the chat input. */
+  onClear?: () => void
   className?: string
   /** Called whenever the plan or theme changes — useful for debugging and tooling. */
   onPlan?: (plan: DocumentPlan, theme: ThemeChoice) => void
 }
 
 const identity = (url: string) => url
+const noop = () => {}
 
 function useSystemAppearance(): Appearance {
   return useSyncExternalStore(
@@ -63,48 +70,6 @@ function useSystemAppearance(): Appearance {
     () => "light",
   )
 }
-
-/**
- * Loads the theme's typefaces and reports when text set in them has stopped
- * reflowing. Resolves on its own after `capMs`, so a slow font host never holds the page.
- */
-function useFonts(href: string, enabled: boolean, capMs = 1800): boolean {
-  const [loaded, setLoaded] = useState<string | null>(null)
-  useEffect(() => {
-    if (!enabled) return
-    let live = true
-    const done = () => live && setLoaded(href)
-    // Fonts are only requested once styled text has been laid out, so give layout two frames first.
-    const settle = () => requestAnimationFrame(() => requestAnimationFrame(() => document.fonts.ready.then(done, done)))
-    const cap = setTimeout(done, capMs)
-
-    let link = document.head.querySelector<HTMLLinkElement>(`link[data-smd-fonts="${href}"]`)
-    if (link?.dataset.smdLoaded) settle()
-    else {
-      if (!link) {
-        link = document.createElement("link")
-        link.rel = "stylesheet"
-        link.href = href
-        link.dataset.smdFonts = href
-        document.head.appendChild(link)
-      }
-      const target = link
-      const onLoad = () => {
-        target.dataset.smdLoaded = "true"
-        settle()
-      }
-      target.addEventListener("load", onLoad, { once: true })
-      target.addEventListener("error", done, { once: true })
-    }
-    return () => {
-      live = false
-      clearTimeout(cap)
-    }
-  }, [href, enabled, capMs])
-  return !enabled || loaded === href
-}
-
-const NONE: string[] = []
 
 /** The component must be at least this wide, in px, before the contents sit beside the document. */
 const SIDEBAR_MIN_WIDTH = 1400
@@ -122,11 +87,18 @@ function useWide(target: React.RefObject<HTMLElement | null>, minWidth: number):
   return wide
 }
 
-/** How far down the page counts as "the first sections", in viewport heights. */
-const FIRST_SCREENS = 2
+/** The opened document is the first thing on the page; chat turns follow it. */
+const DOCUMENT = "doc"
 
-function Document({
-  markdown: initialMarkdown,
+/** The first few words of some text, for pointing at a passage that has no heading. */
+const opening = (text: string) => {
+  const words = text.replace(/\s+/g, " ").trim().split(" ")
+  return words.length > 9 ? `${words.slice(0, 9).join(" ")} …` : words.join(" ")
+}
+
+function Page({
+  markdown,
+  chat,
   editable = false,
   onMarkdownChange,
   classifier,
@@ -139,158 +111,82 @@ function Document({
   maxWaitMs = 8000,
   className,
   onPlan,
+  onClear,
 }: StunningMarkdownProps) {
   const root = useRef<HTMLDivElement>(null)
-  // The text being rendered, and — while it is being edited — the text in the editor.
-  const [markdown, setMarkdown] = useState(initialMarkdown)
-  const [draft, setDraft] = useState(initialMarkdown)
-  const parsed = useMemo(() => parseMarkdown(markdown), [markdown])
-  const bodyText = useMemo(() => toText(parsed.root), [parsed])
-  const prose = useMemo(() => proseOf(parsed.root), [parsed])
-  // What the document's own vocabulary suggests, before any classifier is asked.
-  const keywordTheme = useMemo(() => {
-    const stats = { codeBlocks: (markdown.match(/^```/gm) ?? []).length / 2, tables: (markdown.match(/^\|?\s*:?-{3,}/gm) ?? []).length }
-    return matchTheme(bodyText, stats)
-  }, [markdown, bodyText])
-
-  const [images, setImages] = useState<ImageMetaMap | null>(null)
-  const [judged, setJudged] = useState<Judgements | null>(null)
-  // Classifier questions still unanswered; `null` until the first have been asked.
-  const [pending, setPending] = useState<string[] | null>(null)
-  const [revealed, setRevealed] = useState(false)
-  const [layouts, setLayouts] = useState<Record<string, SectionLayout>>({})
-  const [vizPicks, setVizPicks] = useState<Record<string, VizKind>>({})
-  const [palettePick, setPalettePick] = useState<PaletteId | null>(null)
-  const [appearancePick, setAppearancePick] = useState<Appearance | null>(null)
   const [view, setView] = useState<View>("designed")
-  // Edits are applied on leaving the editor, not per keystroke: re-planning and
-  // re-asking the classifier for every character would be wasteful and jumpy.
-  const changeView = useCallback(
-    (next: View) => {
-      if (draft !== markdown) {
-        setMarkdown(draft)
-        onMarkdownChange?.(draft)
-      }
-      setView(next)
+  const [appearancePick, setAppearancePick] = useState<Appearance | null>(null)
+  const [palettePicks, setPalettePicks] = useState<Record<string, PaletteId>>({})
+  const [reports, setReports] = useState<Record<string, TurnReport>>({})
+  const [documentReady, setDocumentReady] = useState(false)
+  // Clearing the page removes the document too, not just the conversation.
+  const [cleared, setCleared] = useState(false)
+
+  const hasDocument = markdown.trim().length > 0 && !cleared
+  const session = useChatSession({
+    chat,
+    classifier,
+    document: hasDocument ? markdown : "",
+    // Bring the new turn into view; its content will appear there.
+    onTurnStart: useCallback((turnId: string) => {
+      setTimeout(() => scrollToId(`${turnId}-turn`), 80)
+    }, []),
+  })
+
+  // The turns on the page, top to bottom. A turn with nothing to show takes no room.
+  const turns = useMemo(
+    () => [
+      ...(hasDocument ? [{ id: DOCUMENT, prefix: "", markdown, streaming: false, writing: null as string | null }] : []),
+      ...session.turns.filter((turn) => turn.streaming || turn.markdown.trim()).map((turn) => ({ ...turn, prefix: `${turn.id}-` })),
+    ],
+    [hasDocument, markdown, session.turns],
+  )
+
+  const report = useCallback(
+    (id: string, next: TurnReport) => {
+      setReports((all) => (all[id]?.plan === next.plan && all[id]?.theme === next.theme ? all : { ...all, [id]: next }))
+      if (id === DOCUMENT) onPlan?.(next.plan, next.theme)
     },
-    [draft, markdown, onMarkdownChange],
+    [onPlan],
   )
 
-  // 1. Measure images — their size decides hero, full-bleed and split layouts.
-  useEffect(() => {
-    let live = true
-    const urls = collectImageUrls(parsed.root)
-    const cover = ["image", "cover", "banner"].map((key) => parsed.frontmatter[key]).filter((v): v is string => typeof v === "string")
-    probeImages([...urls, ...cover], resolveUrl, settleMs).then((result) => live && setImages(result))
-    return () => {
-      live = false
-    }
-  }, [parsed, resolveUrl, settleMs])
-
-  // 2. Ask the classifier, once sizes are known, about what rules cannot decide.
-  //    Every question is asked straight away, top of the page first, and each
-  //    answer is applied as it lands — nothing waits for the reader to scroll.
-  useEffect(() => {
-    if (!images || !classifier) return
-    const abort = new AbortController()
-    const structural = planDocument({ root: parsed.root, frontmatter: parsed.frontmatter, images })
-    judgeDocument(structural, prose, classifier, {
-      signal: abort.signal,
-      themeHint: keywordTheme ?? undefined,
-      onProgress: (progress) => {
-        setJudged(progress.judgements)
-        setPending(progress.pending)
-      },
-    }).catch((error) => {
-      if (abort.signal.aborted) return
-      console.warn("[stunning-md] classifier unavailable; using rules only", error)
-      setPending([])
-    })
-    return () => abort.abort()
-  }, [images, classifier, parsed, prose, keywordTheme])
-
-  const plan = useMemo(
-    () =>
-      planDocument({
-        root: parsed.root,
-        frontmatter: parsed.frontmatter,
-        images: images ?? {},
-        judgements: { ...judged, viz: { ...judged?.viz, ...vizPicks }, layouts },
-      }),
-    [parsed, images, judged, vizPicks, layouts],
+  // What a turn put on the page, as a short list: its title and headings, or —
+  // if it has none — its opening words.
+  const refsOf = useCallback(
+    (turnId: string): TocEntry[] => {
+      const plan = reports[turnId]?.plan
+      if (!plan) return []
+      const title: TocEntry[] = plan.hero.titleText ? [{ id: `${turnId}-turn`, text: plan.hero.titleText, depth: 0 }] : []
+      if (title.length || plan.toc.length) return [...title, ...plan.toc]
+      const text = plan.hero.lead.length
+        ? plan.hero.lead.flat().map((node) => ("value" in node ? node.value : "")).join("")
+        : (session.turns.find((turn) => turn.id === turnId)?.markdown ?? "")
+      return text.trim() ? [{ id: `${turnId}-turn`, text: opening(text.replace(/[#*_`>|]/g, "")), depth: 0 }] : []
+    },
+    [reports, session.turns],
   )
 
-  const theme = useMemo<ThemeChoice>(() => {
-    const fromFrontmatter = parsed.frontmatter.theme
-    const picked =
-      palettePick ?? (typeof fromFrontmatter === "string" && fromFrontmatter in themes ? (fromFrontmatter as PaletteId) : null)
-    // A theme is a whole look — colours, typefaces and corner style travel together —
-    // whether it was guessed from keywords, chosen by the classifier or picked by hand.
-    const merged = picked ? themeChoice(picked) : { ...themeChoice(keywordTheme ?? "paper"), ...judged?.theme }
-    return { ...merged, ...fixedTheme }
-  }, [keywordTheme, parsed, judged, palettePick, fixedTheme])
+  const documentPlan = hasDocument ? reports[DOCUMENT]?.plan : undefined
+  const anchors = useMemo(
+    () => turns.flatMap((turn) => [`${turn.id}-turn`, ...(reports[turn.id]?.plan.toc.map((entry) => entry.id) ?? [])]),
+    [turns, reports],
+  )
+  const position = useReadingPosition(anchors, root)
 
+  // The bar, the sidebar and the input take on the look of the turn being read.
+  const activeTurn = useMemo(() => {
+    const active = position.active
+    const owner = active && turns.find((turn) => active === `${turn.id}-turn` || reports[turn.id]?.plan.toc.some((entry) => entry.id === active))
+    return (owner || turns[0])?.id ?? null
+  }, [position.active, turns, reports])
   const system = useSystemAppearance()
   const appearance: Appearance = appearancePick ?? (appearanceProp === "auto" ? system : appearanceProp)
-
-  const measured = images !== null
-  const fontsReady = useFonts(googleFontsUrl(fontPairings[theme.fonts]), loadFonts)
-  const outstanding = classifier ? pending : NONE
-
-  // 3. Lift the loader once the top of the page has stopped moving: the theme and
-  //    its fonts are in, and no unanswered question concerns a block near the top.
-  //    The document is already laid out underneath, so this is measured, not guessed.
-  useEffect(() => {
-    if (revealed || !measured) return
-    const frame = requestAnimationFrame(() => {
-      const el = root.current
-      if (!el || !outstanding || !fontsReady) return
-      if (outstanding.includes("theme") || outstanding.includes("hero")) return
-      const top = el.getBoundingClientRect().top
-      const limit = window.innerHeight * FIRST_SCREENS
-      const shifting = outstanding.some((id) => {
-        const block = el.querySelector(`[data-block-id="${CSS.escape(id)}"]`)
-        return !!block && block.getBoundingClientRect().top - top < limit
-      })
-      if (!shifting) setRevealed(true)
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [revealed, measured, outstanding, fontsReady, plan, theme])
-
-  // A slow classifier or font host must not hold the page back indefinitely.
-  useEffect(() => {
-    if (!measured) return
-    const timer = setTimeout(() => setRevealed(true), maxWaitMs)
-    return () => clearTimeout(timer)
-  }, [measured, maxWaitMs])
-
-  useEffect(() => {
-    if (revealed) onPlan?.(plan, theme)
-  }, [plan, theme, revealed, onPlan])
-
-
+  const theme = useMemo<ThemeChoice>(
+    () => ({ ...((activeTurn && reports[activeTurn]?.theme) || themeChoice(palettePicks[""] ?? "ink")), ...fixedTheme }),
+    [activeTurn, reports, palettePicks, fixedTheme],
+  )
   const style = useMemo(() => themeVars(theme, appearance), [theme, appearance])
   const chartTheme = useMemo(() => chartThemeFor(theme), [theme])
-  const setLayout = useCallback((id: string, layout: SectionLayout) => setLayouts((prev) => ({ ...prev, [id]: layout })), [])
-  const setViz = useCallback((id: string, kind: VizKind) => setVizPicks((prev) => ({ ...prev, [id]: kind })), [])
-
-  // Contents: beside the document when there is room for both, in a sheet otherwise.
-  const tocIds = useMemo(() => plan.toc.map((entry) => entry.id), [plan])
-  const position = useReadingPosition(tocIds, root)
-  const wide = useWide(root, SIDEBAR_MIN_WIDTH)
-  const [sidebarWanted, setSidebarWanted] = useState(true)
-  const sidebarId = useId()
-  const sidebar = useMemo(
-    () => ({
-      available: wide && plan.showToc && view !== "source",
-      open: sidebarWanted,
-      toggle: () => setSidebarWanted((open) => !open),
-      id: sidebarId,
-    }),
-    [wide, plan.showToc, view, sidebarWanted, sidebarId],
-  )
-  const showSidebar = sidebar.available && sidebar.open
-
   const context = useMemo<StunningContext>(
     () => ({
       resolveUrl,
@@ -299,11 +195,56 @@ function Document({
       chartTheme,
       portal: { className: cn("smd-portal", appearance === "dark" && "dark"), style },
       controls,
-      setLayout,
-      setViz,
+      setLayout: noop,
+      setViz: noop,
     }),
-    [resolveUrl, appearance, theme, chartTheme, style, controls, setLayout, setViz],
+    [resolveUrl, appearance, theme, chartTheme, style, controls],
   )
+
+  // Contents and conversation: beside the page when there is room for both, in a sheet otherwise.
+  const hasContents = view !== "source" && (!!chat || !!documentPlan?.showToc)
+  const wide = useWide(root, SIDEBAR_MIN_WIDTH)
+  const [sidebarWanted, setSidebarWanted] = useState(true)
+  const sidebarId = useId()
+  const sidebar = useMemo(
+    () => ({ available: wide && hasContents, open: sidebarWanted, toggle: () => setSidebarWanted((open) => !open), id: sidebarId }),
+    [wide, hasContents, sidebarWanted, sidebarId],
+  )
+  const showSidebar = sidebar.available && sidebar.open
+  const meta = documentPlan ? `${documentPlan.readingTime} min read · ${documentPlan.sections.filter((s) => s.titleText).length} sections` : ""
+  const renderContents = (navigate: (id: string) => void) => (
+    <SidebarContents
+      document={documentPlan ? { toc: documentPlan.toc, meta } : null}
+      items={session.items}
+      refsOf={refsOf}
+      active={position.active}
+      busy={session.busy}
+      onNavigate={navigate}
+    />
+  )
+
+  const title = turns.map((turn) => reports[turn.id]?.plan.hero.titleText).find(Boolean) ?? ""
+  const crumb = useMemo(() => {
+    for (const turn of turns) {
+      const toc = reports[turn.id]?.plan.toc ?? []
+      const index = toc.findIndex((entry) => entry.id === position.active)
+      if (index >= 0) return (toc.slice(0, index + 1).findLast((entry) => entry.depth === 0) ?? toc[index]).text
+    }
+    return null
+  }, [turns, reports, position.active])
+
+  const clear = () => {
+    session.clear()
+    setCleared(true)
+    setReports({})
+    setPalettePicks({})
+    onClear?.()
+    window.scrollTo({ top: (root.current?.getBoundingClientRect().top ?? 0) + window.scrollY })
+  }
+
+  // The document is laid out under a loader until its top has settled; a blank page has nothing to wait for.
+  const ready = !hasDocument || documentReady
+  const markReady = useCallback(() => setDocumentReady(true), [])
 
   return (
     <StunningProvider value={context}>
@@ -312,10 +253,11 @@ function Document({
         className={cn("smd", appearance === "dark" && "dark", className)}
         style={style}
         data-theme={theme.palette}
-        data-ready={revealed}
-        aria-busy={!revealed}
+        data-ready={ready}
+        data-chat={chat ? "" : undefined}
+        aria-busy={!ready}
       >
-        {!revealed && (
+        {!ready && (
           <div className="smd-loader" role="status" aria-live="polite">
             <div>
               <span className="smd-loader-mark" aria-hidden />
@@ -324,42 +266,78 @@ function Document({
           </div>
         )}
         {/* Laid out beneath the loader so its final shape can be measured before it is shown. */}
-        {measured && (
-          <div className="smd-document" inert={!revealed}>
-            <a href={`#${plan.sections[0]?.id ?? "top"}`} className="smd-skip">
-              Skip to content
-            </a>
-            <Nav
-              plan={plan}
-              root={root}
-              position={position}
-              sidebar={sidebar}
-              view={view}
-              onView={changeView}
-              onPalette={setPalettePick}
-              onAppearance={setAppearancePick}
-            />
-            <div className="smd-body" data-sidebar={showSidebar || undefined}>
-              <div className="smd-content">
-                {view === "source" ? (
-                  <SourceView value={draft} onChange={editable ? setDraft : undefined} />
-                ) : view === "plain" ? (
-                  <PlainDocument root={parsed.root} toc={plan.toc} />
-                ) : (
-                  <>
-                    <HeroView plan={plan} />
-                    <main>
-                      {plan.sections.map((section) => (
-                        <SectionView key={section.id} section={section} />
-                      ))}
-                    </main>
-                  </>
+        <div className="smd-document" inert={!ready}>
+          <a href={`#${turns[0] ? `${turns[0].id}-turn` : "smd-main"}`} className="smd-skip">
+            Skip to content
+          </a>
+          <Nav
+            title={title}
+            crumb={crumb}
+            contents={hasContents ? { label: chat ? "Chat" : "Contents", description: meta, render: renderContents } : null}
+            root={root}
+            bar={position.bar}
+            sidebar={sidebar}
+            view={view}
+            onView={setView}
+            onPalette={(palette) => setPalettePicks((all) => ({ ...all, [activeTurn ?? ""]: palette }))}
+            onAppearance={setAppearancePick}
+          />
+          <div className="smd-body" data-sidebar={showSidebar || undefined}>
+            <div className="smd-content">
+              <main id="smd-main">
+                {turns.map((turn, index) => (
+                  <div key={turn.id} className="smd-turn-slot">
+                    {/* Turns are set apart by a band of empty page. */}
+                    {index > 0 && <div className="smd-turn-gap" aria-hidden />}
+                    <TurnView
+                      id={turn.id}
+                      prefix={turn.prefix}
+                      markdown={turn.markdown}
+                      streaming={turn.streaming}
+                      writing={turn.writing}
+                      lockTheme={turn.id !== DOCUMENT}
+                      onReady={turn.id === DOCUMENT ? markReady : undefined}
+                      classifier={classifier}
+                      fixedTheme={fixedTheme}
+                      palettePick={palettePicks[turn.id] ?? null}
+                      appearance={appearance}
+                      resolveUrl={resolveUrl}
+                      controls={controls}
+                      editable={editable && turn.id === DOCUMENT}
+                      loadFonts={loadFonts}
+                      settleMs={settleMs}
+                      maxWaitMs={maxWaitMs}
+                      view={view}
+                      onReport={report}
+                      onMarkdownChange={turn.id === DOCUMENT ? onMarkdownChange : undefined}
+                    />
+                  </div>
+                ))}
+                {chat && turns.length === 0 && (
+                  <div className="smd-empty">
+                    <p>A blank page.</p>
+                    <p>Ask for something below and it will be laid out here.</p>
+                  </div>
                 )}
-              </div>
-              {showSidebar && <TocSidebar plan={plan} active={position.active} id={sidebarId} />}
+              </main>
+              {chat && (
+                <ChatDock
+                  notes={session.notes}
+                  busy={session.busy}
+                  canClear={turns.length > 0 || session.items.length > 0}
+                  onSend={session.send}
+                  onStop={session.stop}
+                  onClear={clear}
+                />
+              )}
             </div>
+            {showSidebar && (
+              <Sidebar id={sidebarId} title={chat ? "Chat" : "Contents"} active={position.active} tail={session.items.length}>
+                {renderContents(scrollToId)}
+              </Sidebar>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </StunningProvider>
   )
@@ -368,13 +346,14 @@ function Document({
 /**
  * Renders a markdown string as a designed, responsive page: a hero, sections
  * laid out by the shape of their content, charts for tabular data, a contents
- * menu, and a theme chosen to suit the text.
+ * menu, and a theme chosen to suit the text. With `chat`, the page also takes
+ * requests, and lays each answer out below as it is written.
  */
 export function StunningMarkdown(props: StunningMarkdownProps) {
   const { markdown, onMarkdownChange } = props
-  // A different document starts from a clean slate — no stale sizes, judgements
-  // or picks. The reader's own edit coming back through the `markdown` prop is
-  // the same document, and must not reset anything.
+  // A different document starts from a clean slate — no stale sizes, judgements,
+  // picks or conversation. The reader's own edit coming back through the
+  // `markdown` prop is the same document, and must not reset anything.
   const [identity, setIdentity] = useState<{ markdown: string; key: number; echo: string | null }>({ markdown, key: 0, echo: null })
   let current = identity
   if (markdown !== identity.markdown) {
@@ -388,5 +367,5 @@ export function StunningMarkdown(props: StunningMarkdownProps) {
     },
     [onMarkdownChange],
   )
-  return <Document key={current.key} {...props} onMarkdownChange={handleChange} />
+  return <Page key={current.key} {...props} onMarkdownChange={handleChange} />
 }

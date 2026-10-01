@@ -71,7 +71,7 @@
   --smd-measure: 66ch;
   --smd-section-y: clamp(3.5rem, 8vw, 7.5rem);
   --smd-nav-h: 3rem;
-  --smd-sidebar-w: clamp(15rem, 18vw, 19rem);
+  --smd-sidebar-w: clamp(18rem, 23vw, 26rem);
 
   position: relative;
   background: var(--background);
@@ -167,6 +167,264 @@
 }
 .smd-content {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100svh - var(--smd-nav-h));
+}
+.smd-content > main {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Turns: several documents on one page ------------------------------------
+ * The opened file and each chat answer are documents in their own right, each
+ * in its own theme, set apart by a band of bare page. */
+
+.smd-turn {
+  position: relative;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--smd-font-body);
+  scroll-margin-top: var(--smd-nav-h);
+  outline: none;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+.smd-turn-gap {
+  height: clamp(3.5rem, 9vw, 7rem);
+  background: #fff;
+}
+.smd.dark .smd-turn-gap {
+  background: #000;
+}
+.smd-writing {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: clamp(2rem, 5vw, 3.5rem) var(--smd-gutter);
+  font-size: 0.9375rem;
+  color: var(--muted-foreground);
+}
+.smd-writing .smd-loader-mark {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.smd-empty {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  gap: 0.6rem;
+  padding: 5rem var(--smd-gutter);
+  text-align: center;
+  color: var(--muted-foreground);
+}
+.smd-empty p:first-child {
+  font-family: var(--smd-font-heading);
+  font-weight: var(--smd-heading-weight);
+  letter-spacing: var(--smd-tracking);
+  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.75rem);
+  line-height: 1.1;
+  color: var(--foreground);
+}
+
+/* --- Chat: the input that floats over the page --------------------------------- */
+
+.smd-chat-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.5rem var(--smd-gutter) 1rem;
+  pointer-events: none;
+}
+.smd-chat-dock > * {
+  width: min(100%, 46rem);
+}
+.smd-chat-notes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+.smd-chat-note {
+  max-width: 100%;
+  padding: 0.6rem 0.95rem;
+  border-radius: 1.1rem 1.1rem 1.1rem 0.3rem;
+  background: color-mix(in oklab, var(--background) 86%, transparent);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.14);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--foreground);
+  /* Shown for a few seconds, then gone; the conversation keeps it. */
+  animation: smd-note 7s ease both;
+}
+@keyframes smd-note {
+  0% {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  5%,
+  82% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+}
+.smd-chat-form {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  padding: 0.4rem;
+  border-radius: 1.75rem;
+  background: color-mix(in oklab, var(--background) 86%, transparent);
+  border: 1px solid var(--border);
+  backdrop-filter: saturate(1.4) blur(18px);
+  -webkit-backdrop-filter: saturate(1.4) blur(18px);
+  box-shadow: 0 10px 34px rgb(0 0 0 / 0.18);
+  font-family: var(--smd-font-body);
+  transition: border-color 0.15s;
+}
+.smd-chat-form:focus-within {
+  border-color: color-mix(in oklab, var(--primary) 55%, var(--border));
+}
+.smd-chat-form > button {
+  flex: none;
+  border-radius: 999px;
+}
+/* The field grows with its text: the hidden copy sets the height, the textarea covers it. */
+.smd-chat-field {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  max-height: 10rem;
+  overflow-y: auto;
+}
+.smd-chat-field::after {
+  content: attr(data-value) " ";
+  visibility: hidden;
+}
+.smd-chat-field::after,
+.smd-chat-field textarea {
+  grid-area: 1 / 1;
+  padding: 0.35rem 0.5rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.smd-chat-field textarea {
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  color: var(--foreground);
+}
+.smd-chat-field textarea::placeholder {
+  color: var(--muted-foreground);
+}
+/* On a phone the input is a single line beside its button. */
+@media (max-width: 40rem) {
+  .smd-chat-dock {
+    padding-inline: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  .smd-chat-field {
+    overflow: hidden;
+  }
+  .smd-chat-field::after {
+    display: none;
+  }
+  .smd-chat-field textarea {
+    height: 2.25rem;
+    white-space: nowrap;
+    overflow-x: auto;
+    font-size: 16px;
+  }
+}
+
+/* --- Chat: the conversation beside the page ----------------------------------- */
+
+.smd-chat {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1rem 1.25rem 1.75rem 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.smd-toc-list + .smd-chat {
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--border);
+}
+.smd-chat-user {
+  align-self: flex-end;
+  max-width: 90%;
+  padding: 0.5rem 0.85rem;
+  border-radius: 1.1rem 1.1rem 0.3rem 1.1rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.smd-chat-remark {
+  max-width: 96%;
+  color: var(--foreground);
+}
+.smd-chat-remark p + p,
+.smd-chat-note p + p {
+  margin-top: 0.5em;
+}
+.smd-chat-remark a,
+.smd-chat-note a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.smd-chat-remark[data-failed] {
+  color: #d03b3b;
+}
+/* A turn's content is on the page; here it is only pointed to. */
+.smd-chat-refs {
+  border-left: 2px solid var(--primary);
+}
+.smd-chat-refs .smd-toc-list {
+  overflow: visible;
+  padding: 0 0 0 0.35rem;
+}
+.smd-chat-typing {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.3rem 0;
+}
+.smd-chat-typing i {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--muted-foreground);
+  animation: smd-pulse 1.2s ease-in-out infinite;
+}
+.smd-chat-typing i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.smd-chat-typing i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+.smd-toc-body {
+  overflow-y: auto;
+}
+.smd-toc-body .smd-sidebar-meta {
+  display: none;
 }
 .smd-sidebar {
   position: sticky;
@@ -438,7 +696,7 @@
 
 /* The untitled introduction follows on from the hero, but still needs clear air
    beneath it: heroes carry gradients and photographs that end in a hard edge. */
-.smd-hero + main > .smd-section[data-intro] {
+.smd-hero + .smd-sections > .smd-section[data-intro] {
   padding-top: clamp(2.5rem, 6vw, 5rem);
 }
 
@@ -1461,6 +1719,7 @@ img.smd-frame {
 }
 
 @media print {
+  .smd-chat-dock,
   .smd-view-switch,
   .smd-sidebar,
   .smd-nav,

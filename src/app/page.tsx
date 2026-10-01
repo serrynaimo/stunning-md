@@ -1,10 +1,11 @@
 "use client"
 
-import { ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, UploadIcon, XIcon } from "lucide-react"
+import { ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, SparklesIcon, UploadIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { createClassifier, StunningMarkdown } from "@/stunning-md"
+import { createChat, createClassifier, StunningMarkdown } from "@/stunning-md"
+import { OwnChatForm, useOwnChat } from "./own-chat"
 import { OwnClassifierForm, useOwnClassifier } from "./own-classifier"
 
 const SAMPLES = [
@@ -29,6 +30,8 @@ const MARKDOWN = /\.(md|markdown|mdx|txt)$/i
 
 /** Sub-path the site is served from, e.g. "/stunning-md" on GitHub Pages. */
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
+/** In development Next.js shows its own badge in the bottom-left corner. */
+const DEV = process.env.NODE_ENV === "development"
 /** A static export has no server, so no classifier of its own — only one the reader adds. */
 const STATIC = process.env.NEXT_PUBLIC_STATIC_EXPORT === "1"
 
@@ -42,6 +45,8 @@ type Loaded = {
 
 /** This site's own classifier, reached through a server route that holds the key. */
 const siteClassifier = createClassifier({ endpoint: `${BASE}/api/classify` })
+/** This site's own chat model, reached the same way. */
+const siteChat = createChat({ endpoint: `${BASE}/api/chat` })
 
 const normalise = (path: string) => decodeURIComponent(path).replace(/^\.?\//, "").split(/[?#]/)[0]
 
@@ -84,6 +89,14 @@ export default function Home() {
     [own],
   )
   const classifier = site === "configured" ? siteClassifier : ownClassifier
+  // The chat model follows the same rule: the server's if it has one, otherwise the reader's own.
+  const [siteChatState, setSiteChatState] = useState<"unknown" | "configured" | "missing">(STATIC ? "missing" : "unknown")
+  const ownChat = useOwnChat()
+  const ownChatFn = useMemo(
+    () => (ownChat ? createChat({ endpoint: ownChat.url, model: ownChat.model, headers: ownChat.key ? { authorization: `Bearer ${ownChat.key}` } : undefined }) : undefined),
+    [ownChat],
+  )
+  const chat = siteChatState === "configured" ? siteChat : ownChatFn
   const fileInput = useRef<HTMLInputElement>(null)
   const folderInput = useRef<HTMLInputElement>(null)
 
@@ -118,6 +131,10 @@ export default function Home() {
       .then((response) => response.json())
       .then((status: { configured?: boolean }) => live && setSite(status.configured ? "configured" : "missing"))
       .catch(() => live && setSite("missing"))
+    fetch(`${BASE}/api/chat`)
+      .then((response) => response.json())
+      .then((status: { configured?: boolean }) => live && setSiteChatState(status.configured ? "configured" : "missing"))
+      .catch(() => live && setSiteChatState("missing"))
     return () => {
       live = false
     }
@@ -154,13 +171,27 @@ export default function Home() {
     [doc],
   )
 
-  if (doc && site === "unknown") return null
+  if (doc && (site === "unknown" || siteChatState === "unknown")) return null
 
   if (doc) {
     return (
       <>
-        <StunningMarkdown markdown={doc.markdown} classifier={classifier} resolveUrl={resolveUrl} editable />
-        <div className="fixed right-4 bottom-4 z-50 flex items-center gap-1 rounded-full border bg-background/90 py-1 pr-1 pl-3.5 text-sm shadow-lg backdrop-blur">
+        <StunningMarkdown
+          markdown={doc.markdown}
+          classifier={classifier}
+          chat={chat}
+          resolveUrl={resolveUrl}
+          editable
+          // A cleared page is no longer the file that was opened.
+          onClear={() => setDoc((current) => current && { ...current, name: "New page" })}
+        />
+        <div
+          className={cn(
+            "fixed z-50 flex items-center gap-1 rounded-full border bg-background/90 py-1 pr-1 pl-3.5 text-sm shadow-lg backdrop-blur",
+            // With chat on, keep clear of the input (bottom centre) and the conversation (right).
+            chat ? cn("bottom-20 sm:bottom-4", DEV ? "left-16" : "left-4") : "right-4 bottom-4",
+          )}
+        >
           <FileTextIcon className="size-3.5 text-muted-foreground" aria-hidden />
           <span className="max-w-[40vw] truncate">{doc.name}</span>
           <Button variant="ghost" size="icon-sm" className="rounded-full" onClick={close} aria-label="Close document and open another">
@@ -230,6 +261,12 @@ export default function Home() {
             <FolderOpenIcon data-icon="inline-start" />
             Choose a folder
           </Button>
+          {chat && (
+            <Button size="lg" variant="outline" onClick={() => setDoc({ name: "New page", markdown: "", assets: new Map() })}>
+              <SparklesIcon data-icon="inline-start" />
+              Start with a blank page
+            </Button>
+          )}
         </div>
         <input
           ref={fileInput}
@@ -307,16 +344,22 @@ export default function Home() {
         </ul>
       </section>
 
-      {site === "missing" && (
-        <div className="mt-8">
-          <OwnClassifierForm current={own} />
+      {(site === "missing" || siteChatState === "missing") && (
+        <div className="mt-8 flex flex-col gap-4">
+          {site === "missing" && <OwnClassifierForm current={own} />}
+          {siteChatState === "missing" && <OwnChatForm current={ownChat} />}
         </div>
       )}
 
       <p className="text-sm text-muted-foreground">
         Your file is parsed and rendered in the browser.{" "}
-        {classifier
-          ? "A short excerpt — the title, headings, opening text and small tables — is sent to the classifier to choose the theme and settle ambiguous layouts."
+        {classifier || chat
+          ? [
+              classifier && "A short excerpt — the title, headings, opening text and small tables — is sent to the classifier to choose the theme and settle ambiguous layouts.",
+              chat && "If you use the chat, the open document and your messages are sent to the chat model.",
+            ]
+              .filter(Boolean)
+              .join(" ")
           : site === "missing"
             ? "Nothing is sent anywhere."
             : null}

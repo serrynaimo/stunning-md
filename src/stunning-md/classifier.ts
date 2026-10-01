@@ -97,6 +97,8 @@ export type JudgeOptions = {
   confidence?: number
   /** The theme the document's own keywords point to, if any (see `matchTheme`). */
   themeHint?: PaletteId
+  /** Leave the theme question out — for a document whose theme is already settled. */
+  skipTheme?: boolean
   /** Requests in flight at once. Default 3. */
   concurrency?: number
   /** Upper bound on tables sent for a form judgement. */
@@ -148,7 +150,7 @@ export async function judgeDocument(
 
   // One question settles the whole look. Each option spells out the theme's
   // colours and typefaces as well as the content it suits.
-  attempt(
+  if (!options.skipTheme) attempt(
     "theme",
     {
       state: documentDigest(plan, prose),

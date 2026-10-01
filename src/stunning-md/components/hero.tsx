@@ -5,7 +5,7 @@ import { useStunning } from "./context"
 import { Inline, safeUrl } from "./flow"
 import { Picture } from "./media"
 
-export function HeroView({ plan }: { plan: DocumentPlan }) {
+export function HeroView({ plan, id = "top" }: { plan: DocumentPlan; id?: string }) {
   const { resolveUrl } = useStunning()
   const { hero } = plan
   if (!hero.titleText && !hero.lead.length && !hero.image) return null
@@ -52,7 +52,7 @@ export function HeroView({ plan }: { plan: DocumentPlan }) {
   )
 
   return (
-    <header className="smd-hero" data-variant={hero.variant} id="top">
+    <header className="smd-hero" data-variant={hero.variant} id={id}>
       {hero.variant === "banner" && hero.image && (
         <>
           <Picture image={hero.image} eager className="smd-cover" />

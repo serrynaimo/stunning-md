@@ -23,6 +23,11 @@ export type PlanInput = {
   /** Natural image sizes keyed by the URL written in the markdown. */
   images?: ImageMetaMap
   judgements?: Judgements
+  /**
+   * Put in front of every id the plan generates. Needed when several documents
+   * share one page, so their section anchors cannot collide.
+   */
+  idPrefix?: string
 }
 
 const BADGE_URL = /shields\.io|badgen\.net|badge\.fury\.io|\/badge(s)?[./]|badge\.svg|travis-ci|circleci\.com|codecov\.io|coveralls\.io|img\.shields/i
@@ -64,6 +69,7 @@ type Context = {
   images: ImageMetaMap
   judgements: Judgements
   slugs: Set<string>
+  prefix: string
   sectionDepth: number
   splitCount: number
   dataCount: number
@@ -148,7 +154,7 @@ function buildBlocks(nodes: RootContent[], ctx: Context, sectionId: string): Blo
         blocks.push({
           kind: "heading",
           depth: Math.max(1, node.depth - ctx.sectionDepth),
-          id: slugify(toText(node), ctx.slugs),
+          id: ctx.prefix + slugify(toText(node), ctx.slugs),
           children: node.children,
         })
         break
@@ -294,7 +300,7 @@ function rankLayouts(raw: RawSection, shape: Shape): { layouts: SectionLayout[];
 
 function buildSection(raw: RawSection, ctx: Context, index: number): Section {
   const titleText = raw.heading ? toText(raw.heading).trim() : ""
-  const id = raw.heading ? slugify(titleText, ctx.slugs) : slugify("introduction", ctx.slugs)
+  const id = ctx.prefix + (raw.heading ? slugify(titleText, ctx.slugs) : slugify("introduction", ctx.slugs))
   const shape = measure(raw, ctx)
   const { layouts, reason } = rankLayouts(raw, shape)
   const wanted = ctx.judgements.layouts?.[id]
@@ -310,7 +316,7 @@ function buildSection(raw: RawSection, ctx: Context, index: number): Section {
       {
         kind: "cards",
         items: shape.cards.map((card) => ({
-          id: slugify(toText(card.heading), ctx.slugs),
+          id: ctx.prefix + slugify(toText(card.heading), ctx.slugs),
           title: card.heading.children,
           blocks: buildBlocks(card.nodes, ctx, id),
         })),
@@ -369,6 +375,7 @@ export function planDocument(input: PlanInput): DocumentPlan {
     images: input.images ?? {},
     judgements: input.judgements ?? {},
     slugs: new Set(["top"]),
+    prefix: input.idPrefix ?? "",
     sectionDepth,
     splitCount: 0,
     dataCount: 0,

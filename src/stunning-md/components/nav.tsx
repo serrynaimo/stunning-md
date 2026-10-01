@@ -7,10 +7,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { themeList } from "../theme/themes"
-import type { Appearance, DocumentPlan, PaletteId, TocEntry } from "../types"
+import type { Appearance, PaletteId } from "../types"
 import { useStunning } from "./context"
 
-function scrollToId(id: string) {
+export function scrollToId(id: string) {
   const target = document.getElementById(id)
   if (!target) return
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -65,29 +65,8 @@ export type ReadingPosition = ReturnType<typeof useReadingPosition>
 /** How the contents are offered: beside the page when there is room, otherwise in a sheet. */
 export type SidebarState = { available: boolean; open: boolean; toggle: () => void; id: string }
 
-function TocList({ entries, active, onNavigate }: { entries: TocEntry[]; active: string | null; onNavigate: (id: string) => void }) {
-  return (
-    <ol className="smd-toc-list">
-      {entries.map((entry) => (
-        <li key={entry.id} data-depth={entry.depth}>
-          <a
-            href={`#${entry.id}`}
-            aria-current={entry.id === active ? "location" : undefined}
-            onClick={(event) => {
-              event.preventDefault()
-              onNavigate(entry.id)
-            }}
-          >
-            {entry.text}
-          </a>
-        </li>
-      ))}
-    </ol>
-  )
-}
-
-/** The contents, pinned beside the document on wide screens. */
-export function TocSidebar({ plan, active, id }: { plan: DocumentPlan; active: string | null; id: string }) {
+/** The contents and conversation, pinned beside the page on wide screens. */
+export function Sidebar({ id, title, active, tail, children }: { id: string; title: string; active: string | null; tail: number; children: React.ReactNode }) {
   const scroller = useRef<HTMLElement>(null)
 
   // Keep the current entry in view as the reader moves through a long document.
@@ -95,18 +74,21 @@ export function TocSidebar({ plan, active, id }: { plan: DocumentPlan; active: s
     const box = scroller.current
     const current = box?.querySelector<HTMLElement>("[aria-current]")
     if (!box || !current) return
-    const top = current.offsetTop - box.offsetTop
+    const top = current.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop
     if (top < box.scrollTop + 48) box.scrollTop = Math.max(0, top - 48)
     else if (top + current.offsetHeight > box.scrollTop + box.clientHeight - 48) box.scrollTop = top + current.offsetHeight - box.clientHeight + 48
   }, [active])
 
+  // Follow the conversation as it grows.
+  useEffect(() => {
+    const box = scroller.current
+    if (box && tail > 0) box.scrollTop = box.scrollHeight
+  }, [tail])
+
   return (
-    <nav ref={scroller} id={id} className="smd-sidebar" aria-label="Contents">
-      <p className="smd-sidebar-title">Contents</p>
-      <p className="smd-sidebar-meta">
-        {plan.readingTime} min read · {plan.sections.filter((s) => s.titleText).length} sections
-      </p>
-      <TocList entries={plan.toc} active={active} onNavigate={scrollToId} />
+    <nav ref={scroller} id={id} className="smd-sidebar" aria-label={title}>
+      <p className="smd-sidebar-title">{title}</p>
+      {children}
     </nav>
   )
 }
@@ -157,18 +139,25 @@ function ViewSwitch({ view, onView }: { view: View; onView: (view: View) => void
 }
 
 export function Nav({
-  plan,
+  title,
+  crumb,
+  contents,
   root,
-  position,
+  bar,
   sidebar,
   view,
   onView,
   onPalette,
   onAppearance,
 }: {
-  plan: DocumentPlan
+  /** The page's title, if it has one. */
+  title: string
+  /** The section being read. */
+  crumb: string | null
+  /** What the contents menu holds on narrow screens, or `null` if there is nothing to list. */
+  contents: { label: string; description: string; render: (navigate: (id: string) => void) => React.ReactNode } | null
   root: React.RefObject<HTMLElement | null>
-  position: ReadingPosition
+  bar: React.RefObject<HTMLDivElement | null>
   sidebar: SidebarState
   view: View
   onView: (view: View) => void
@@ -177,18 +166,13 @@ export function Nav({
 }) {
   const { portal, theme, appearance, controls } = useStunning()
   const [open, setOpen] = useState(false)
-  const { active, bar } = position
-  // The raw text has no headings to jump to.
-  const hasToc = plan.showToc && view !== "source"
-  const activeTop = plan.toc.find((entry) => entry.id === active)
-  const current = activeTop ? (plan.toc.slice(0, plan.toc.indexOf(activeTop) + 1).findLast((e) => e.depth === 0) ?? activeTop) : null
 
-  if (!plan.showToc && !controls) return null
+  if (!contents && !controls) return null
 
   return (
     <nav className="smd-nav" aria-label="Document" data-sidebar={(sidebar.available && sidebar.open) || undefined}>
       <div className="smd-container flex h-12 items-center gap-2">
-        {plan.hero.titleText && (
+        {title && (
           <a
             href="#top"
             onClick={(event) => {
@@ -197,13 +181,13 @@ export function Nav({
             }}
             className="smd-nav-title min-w-0 truncate"
           >
-            {plan.hero.titleText}
+            {title}
           </a>
         )}
-        {current && (
-          <span className={cn("min-w-0 truncate text-sm text-muted-foreground", plan.hero.titleText && "hidden sm:inline")} aria-hidden>
-            {plan.hero.titleText && <span className="mx-1.5 opacity-50">/</span>}
-            {current.text}
+        {crumb && (
+          <span className={cn("min-w-0 truncate text-sm text-muted-foreground", title && "hidden sm:inline")} aria-hidden>
+            {title && <span className="mx-1.5 opacity-50">/</span>}
+            {crumb}
           </span>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
@@ -240,7 +224,7 @@ export function Nav({
           >
             {appearance === "dark" ? <SunIcon /> : <MoonIcon />}
           </Button>
-          {sidebar.available && (
+          {sidebar.available && contents && (
             <Button
               variant="ghost"
               size="sm"
@@ -248,34 +232,32 @@ export function Nav({
               onClick={sidebar.toggle}
               aria-expanded={sidebar.open}
               aria-controls={sidebar.id}
-              aria-label={sidebar.open ? "Hide table of contents" : "Show table of contents"}
+              aria-label={sidebar.open ? `Hide ${contents.label.toLowerCase()}` : `Show ${contents.label.toLowerCase()}`}
             >
               {sidebar.open ? <PanelRightCloseIcon /> : <PanelRightOpenIcon />}
-              <span>Contents</span>
+              <span>{contents.label}</span>
             </Button>
           )}
-          {hasToc && !sidebar.available && (
+          {contents && !sidebar.available && (
             <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger render={<Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5" aria-label="Open table of contents" />}>
+              <SheetTrigger render={<Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5" aria-label={`Open ${contents.label.toLowerCase()}`} />}>
                 <MenuIcon />
-                <span className="hidden sm:inline">Contents</span>
+                <span className="hidden sm:inline">{contents.label}</span>
               </SheetTrigger>
               <SheetContent style={portal.style} className={cn(portal.className, "smd-toc gap-0")}>
                 <SheetHeader>
-                  <SheetTitle>Contents</SheetTitle>
-                  <SheetDescription>
-                    {plan.readingTime} min read · {plan.sections.filter((s) => s.titleText).length} sections
+                  <SheetTitle>{contents.label}</SheetTitle>
+                  <SheetDescription className={contents.description ? undefined : "sr-only"}>
+                    {contents.description || "Jump to a part of the page."}
                   </SheetDescription>
                 </SheetHeader>
-                <TocList
-                  entries={plan.toc}
-                  active={active}
-                  onNavigate={(id) => {
+                <div className="smd-toc-body">
+                  {contents.render((id) => {
                     setOpen(false)
                     // Wait for the sheet to release its scroll lock.
                     setTimeout(() => scrollToId(id), 60)
-                  }}
-                />
+                  })}
+                </div>
               </SheetContent>
             </Sheet>
           )}

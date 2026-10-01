@@ -2,6 +2,10 @@
 
 Markdown in. A beautifully designed website out.
 
+[![A markdown file about a coffee roastery, rendered by stunning-md: a full-width photograph behind the title, and the contents pinned on the right](docs/roastery.jpg)](https://serrynaimo.github.io/stunning-md/?sample=roastery)
+
+*[This markdown file](public/samples/roastery.md), rendered. [Open it live.](https://serrynaimo.github.io/stunning-md/?sample=roastery)*
+
 `stunning-md` is a React component. Give it a markdown string and it lays the document out section by section — from its structure, the size of its images and the shape of its tables — then themes it to suit what it says. A small classifier model can be consulted for the judgement calls structure cannot settle; without one, rules decide everything.
 
 **[Try the live demo](https://serrynaimo.github.io/stunning-md/)** with your own file or one of the samples.

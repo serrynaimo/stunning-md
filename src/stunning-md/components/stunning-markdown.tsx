@@ -375,8 +375,8 @@ function Page({
                       markdown={turn.markdown}
                       streaming={turn.streaming}
                       waiting={turn.waiting}
-                      // With the conversation out of view, the turn itself shows what was asked.
-                      asked={showSidebar || showSheet ? undefined : turn.request || undefined}
+                      // Until the answer starts, the turn shows what was asked in its place.
+                      asked={turn.request || undefined}
                       writing={turn.writing}
                       lockTheme={turn.id !== DOCUMENT || streamed}
                       themeContext={turn.request || undefined}

@@ -29,10 +29,7 @@ export type TurnViewProps = {
   streaming?: boolean
   /** Nothing has come back from the model yet. */
   waiting?: boolean
-  /**
-   * What was asked, shown as a chat bubble while `waiting` — for when the
-   * conversation, where it would otherwise be seen, is not in view.
-   */
+  /** What was asked, shown as a chat bubble while `waiting`. */
   asked?: string
   /** The section being written, shown while `streaming`. */
   writing?: string | null

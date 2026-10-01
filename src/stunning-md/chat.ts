@@ -335,6 +335,38 @@ const ANSWERS_QUESTION = {
 const NO_ANSWER =
   /^(sorry|apologies|unfortunately|i[’']?m (not sure|sorry|afraid|unable|not able)|i (don[’']?t|do not|can[’']?t|cannot|couldn[’']?t|am not able|am unable)\b|(could|can|would) you (please )?(clarify|tell|share|provide|say|explain|rephrase|give)|what (do you mean|would you like|exactly))/i
 
+const WANTS_CONTENT_QUESTION = {
+  type: "noul" as const,
+  criteria: {
+    true: "the user asks for something to be written, explained, listed, compared or added to the page",
+    false: "the user is only making conversation: a greeting, thanks, small talk, feedback, or a question about the assistant itself",
+  },
+}
+
+/** Below this the classifier takes a message for conversation; it leans towards content, which is the costlier thing to miss. */
+const CONVERSATION_BELOW = 0.42
+
+/** Messages that are conversation and nothing else — used when there is no classifier to ask. */
+const SMALL_TALK =
+  /^(h+i+|he+y+|hello+|hiya|howdy|yo|good (morning|afternoon|evening|night)|thanks?( you)?|thx|ty|cheers|ok(ay)?|cool|nice( (work|one|job))?|great( (work|job))?|good (work|job)|well done|awesome|perfect|lovely|love it|(that |this |it )?looks? (good|nice|great)|lol|ha(ha)+|bye|goodbye|see you|never ?mind|how are you|how('?s| is) it going|what'?s up|who are you|what are you|what can you do|what (model|llm) are you|are you (there|real|a bot|an ai|ok)|can you hear me|(are )?you there|test(ing)?)\b(?:[\s,!.?]+(there|again|everyone|all|you|so much|a lot|very much|today|then|cool|nice|great|thanks?( you)?))*[\s!.?…]*$/i
+
+/**
+ * Whether a message asks for something for the page — as opposed to a greeting,
+ * thanks or small talk, whose reply belongs in the conversation alone. Asked
+ * before the reply arrives, so the page need not make room for an answer that
+ * is never coming. The classifier answers this reliably; without one, only
+ * messages that are plainly small talk are taken as such.
+ */
+export function wantsContent(request: string, classify?: Classify, signal?: AbortSignal): Promise<boolean> {
+  const text = request.trim()
+  const byWording = !SMALL_TALK.test(text)
+  if (!classify) return Promise.resolve(byWording)
+  return classify({ state: `User: ${text.replace(/\s+/g, " ").slice(0, 400)}`, questions: { wants: WANTS_CONTENT_QUESTION } }, signal).then(
+    (result) => (result.wants?.type === "noul" ? result.wants.noul >= CONVERSATION_BELOW : byWording),
+    () => byWording,
+  )
+}
+
 /** Where a paragraph sits in the reply — remarks to the user live at its edges. */
 type Position = "opening" | "inside" | "closing"
 
@@ -359,11 +391,16 @@ export async function sortReply(options: {
   stream: AsyncIterable<string>
   /** What the user asked — needed to judge whether the reply answers it. */
   request?: string
+  /**
+   * The user was only making conversation (see `wantsContent`): the reply is
+   * taken as conversation too, unless it turns out to carry content after all.
+   */
+  smallTalk?: boolean | Promise<boolean>
   classify?: Classify
   signal?: AbortSignal
   onEvent: (event: TurnEvent) => void
 }): Promise<TurnResult> {
-  const { stream, request, classify, signal, onEvent } = options
+  const { stream, request, smallTalk, classify, signal, onEvent } = options
   const splitter = new BlockSplitter()
   const released: string[] = []
   let raw = ""
@@ -387,8 +424,10 @@ export async function sortReply(options: {
    * as opposed to "I don't know", "I can't help" or a question back. Unlike the
    * remark-or-content question, this is one the classifier answers reliably.
    */
-  const answers = (text: string): Promise<boolean> => {
-    if (!classify) return Promise.resolve(!NO_ANSWER.test(text))
+  const answers = async (text: string): Promise<boolean> => {
+    // Conversation in, conversation out: there is nothing to ask.
+    if (await smallTalk) return false
+    if (!classify) return !NO_ANSWER.test(text)
     const state = `${request ? `User: ${request.replace(/\s+/g, " ").slice(0, 400)}\n` : ""}Assistant: ${text.slice(0, 700)}`
     return classify({ state, questions: { answers: ANSWERS_QUESTION } }, signal).then(
       (result) => (result.answers?.type === "noul" ? result.answers.noul >= 0.5 : !NO_ANSWER.test(text)),

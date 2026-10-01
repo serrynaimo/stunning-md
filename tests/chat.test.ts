@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { BlockSplitter, createChat, settledMarkdown, sortReply, type TurnEvent } from "@/stunning-md/chat"
+import { BlockSplitter, createChat, settledMarkdown, sortReply, wantsContent, type TurnEvent } from "@/stunning-md/chat"
 import type { ClassifierAnswers, ClassifierRequest } from "@/stunning-md/classifier"
 
 /** Feeds text a few characters at a time, the way a model streams it. */
@@ -383,5 +383,62 @@ describe("a title's section in a reply", () => {
     const contents = events.filter((event) => event.type === "content").map((event) => (event.type === "content" ? event.markdown : ""))
     expect(contents[0]).toBe("# A long essay\n\nFirst paragraph of several.")
     expect(contents.length).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe("messages that are only conversation", () => {
+  const TALK = ["hi", "Hello there!", "thanks!", "thank you so much", "ok cool", "who are you?", "what can you do?", "how are you today?", "lol", "good morning", "that looks nice", "are you there?", "nice work", "never mind", "what model are you?"]
+  const REQUESTS = ["Add a pricing section for wholesale customers", "hi, write me a poem about rain", "thanks — now make the intro shorter", "Explain how photosynthesis works", "joo chiat history", "ok, add a table of prices", "What were the causes of the French Revolution?"]
+
+  it("recognises plain small talk without a classifier, and nothing else", async () => {
+    for (const message of TALK) expect(await wantsContent(message), message).toBe(false)
+    for (const message of REQUESTS) expect(await wantsContent(message), message).toBe(true)
+  })
+
+  it("takes the classifier's word, leaning towards content when it is unsure", async () => {
+    const scored = (noul: number) => async (): Promise<ClassifierAnswers> => ({ wants: { type: "noul", noul } })
+    expect(await wantsContent("anything", scored(0.9))).toBe(true)
+    expect(await wantsContent("anything", scored(0.45))).toBe(true)
+    expect(await wantsContent("anything", scored(0.2))).toBe(false)
+  })
+
+  it("falls back on the wording if the classifier cannot be reached", async () => {
+    const down = async (): Promise<ClassifierAnswers> => {
+      throw new Error("unreachable")
+    }
+    expect(await wantsContent("hello", down)).toBe(false)
+    expect(await wantsContent("Write a guide to pour-over coffee", down)).toBe(true)
+  })
+
+  it("keeps the reply to small talk in the conversation, without asking whether it is an answer", async () => {
+    const asked: string[] = []
+    const classify = async (request: ClassifierRequest): Promise<ClassifierAnswers> => {
+      asked.push(...Object.keys(request.questions))
+      return { commentary: { type: "noul", noul: 0.1 }, answers: { type: "noul", noul: 0.99 } }
+    }
+    const events: TurnEvent[] = []
+    await sortReply({
+      stream: streamOf("Hello! I can write and lay out documents for you.\n\nWhat would you like to make?"),
+      request: "hi",
+      smallTalk: Promise.resolve(true),
+      classify,
+      onEvent: (event) => events.push(event),
+    })
+    expect(asked).not.toContain("answers")
+    expect(events.filter((event) => event.type === "content")).toEqual([])
+    expect(events.filter((event) => event.type === "commentary")).toHaveLength(2)
+  })
+
+  it("still lays out content if the reply to small talk carries some", async () => {
+    const events: TurnEvent[] = []
+    await sortReply({
+      stream: streamOf("Hi! Here is what I can do.\n\n## What I can make\n\n- Reports\n- Guides\n- Itineraries\n\n## How to ask\n\nJust say what you need."),
+      request: "hi",
+      smallTalk: true,
+      onEvent: (event) => events.push(event),
+    })
+    expect(events.some((event) => event.type === "answer" && event.answered)).toBe(true)
+    const contents = events.filter((event) => event.type === "content")
+    expect(contents.length).toBeGreaterThan(0)
   })
 })

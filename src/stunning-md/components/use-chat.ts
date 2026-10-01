@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { CHAT_INSTRUCTIONS, documentContext, sortReply, type Chat, type ChatMessage } from "../chat"
+import { CHAT_INSTRUCTIONS, documentContext, sortReply, wantsContent, type Chat, type ChatMessage } from "../chat"
 import type { Classify } from "../classifier"
 
 /** The content of one assistant reply, as it accumulates. */
@@ -16,7 +16,10 @@ export type ChatTurn = {
   writing: string | null
   /** What the reader asked for. */
   request: string
-  /** The model opened without an answer; unless content follows, the turn has nothing for the page. */
+  /**
+   * The turn has no place on the page: the message was only conversation, or the
+   * model opened without an answer. Content, if any follows, gives it one.
+   */
   unanswered: boolean
 }
 
@@ -28,6 +31,12 @@ export type StreamItem =
   | { id: string; type: "contents"; turnId: string }
 
 export type ChatNote = { id: string; text: string }
+
+/**
+ * Longest the page waits to hear whether a message asks for content before
+ * making room for the answer anyway, in ms.
+ */
+const PROMPT_PATIENCE = 1500
 
 /** How long a remark stays above the input before it fades, in ms. */
 const NOTE_LIFETIME = 7000
@@ -74,7 +83,8 @@ export function useChatSession(options: {
       abort.current = controller
       let sequence = 0
       let referenced = false
-      // Whether the turn's place on the page has already been given up.
+      // Whether the turn has a place on the page, and whether that place has since been given up.
+      let placed = false
       let vacated = false
 
       const patch = (change: Partial<ChatTurn>) => setTurns((all) => all.map((turn) => (turn.id === turnId ? { ...turn, ...change } : turn)))
@@ -89,10 +99,32 @@ export function useChatSession(options: {
         timers.current.add(timer)
       }
 
+      // Room is made on the page once the message is known to ask for something —
+      // or the answer shows that it did. Small talk never gets any.
+      const place = () => {
+        if (placed || controller.signal.aborted) return
+        placed = true
+        vacated = false
+        patch({ unanswered: false })
+        onTurnStart?.(turnId)
+      }
+      const vacate = () => {
+        if (!placed || vacated) return
+        vacated = true
+        patch({ unanswered: true })
+        onTurnEmpty?.(turnId)
+      }
+
       setBusy(true)
       setItems((all) => [...all, { id: `${turnId}-u`, type: "user", text: request }])
-      setTurns((all) => [...all, { id: turnId, markdown: "", streaming: true, waiting: true, writing: null, request, unanswered: false }])
-      onTurnStart?.(turnId)
+      setTurns((all) => [...all, { id: turnId, markdown: "", streaming: true, waiting: true, writing: null, request, unanswered: true }])
+
+      // A slow classifier must not hold the page back: without word in time, assume content is wanted.
+      const asksForContent = Promise.race([
+        wantsContent(request, classifier, controller.signal),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(true), PROMPT_PATIENCE)),
+      ])
+      asksForContent.then((wanted) => wanted && place())
 
       const messages: ChatMessage[] = [{ role: "system", content: CHAT_INSTRUCTIONS + documentContext(document) }, ...history.current, { role: "user", content: request }]
 
@@ -112,6 +144,7 @@ export function useChatSession(options: {
       sortReply({
         stream: heard,
         request,
+        smallTalk: asksForContent.then((wanted) => !wanted),
         classify: classifier,
         signal: controller.signal,
         onEvent: (event) => {
@@ -119,14 +152,12 @@ export function useChatSession(options: {
           if (event.type === "commentary") remark(event.text)
           else if (event.type === "writing") patch({ writing: event.heading })
           else if (event.type === "answer") {
-            patch({ unanswered: !event.answered })
-            if (event.answered) onTurnStart?.(turnId)
-            else {
-              vacated = true
-              onTurnEmpty?.(turnId)
-            }
-          }
-          else {
+            if (event.answered) {
+              placed = false
+              place()
+            } else vacate()
+          } else {
+            place()
             // The content lives on the page; the conversation only points to it.
             if (!referenced) {
               referenced = true
@@ -148,7 +179,7 @@ export function useChatSession(options: {
           if (abort.current === controller) abort.current = null
           patch({ streaming: false, waiting: false, writing: null })
           // A reply that was all conversation leaves nothing on the page.
-          if (!referenced && !vacated) onTurnEmpty?.(turnId)
+          if (!referenced) vacate()
           setBusy(false)
         })
     },

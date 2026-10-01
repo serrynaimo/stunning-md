@@ -17,6 +17,7 @@ export function scrollToId(id: string) {
   target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" })
   // Move focus with the viewport so keyboard and screen-reader users land there too.
   target.setAttribute("tabindex", "-1")
+  target.setAttribute("data-jump", "")
   target.focus({ preventScroll: true })
   history.replaceState(null, "", `#${id}`)
 }

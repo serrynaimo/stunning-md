@@ -234,7 +234,8 @@ function Page({
   const style = useMemo(() => themeVars(theme, appearance), [theme, appearance])
   // The conversation is not part of any one answer: its sidebar and input keep a
   // plain look of their own while the turns beside them each wear their theme.
-  const chatStyle = useMemo(() => (chat ? themeVars(CHAT_THEME, appearance) : undefined), [chat, appearance])
+  const neutralStyle = useMemo(() => themeVars(CHAT_THEME, appearance), [appearance])
+  const chatStyle = chat ? neutralStyle : undefined
   useFonts(googleFontsUrl(fontPairings[CHAT_THEME.fonts]), loadFonts && !!chat)
   const chartTheme = useMemo(() => chartThemeFor(theme), [theme])
   const context = useMemo<StunningContext>(
@@ -380,6 +381,8 @@ function Page({
                       lockTheme={turn.id !== DOCUMENT || streamed}
                       themeContext={turn.request || undefined}
                       opening={turn.id === DOCUMENT && streamed ? themeBasis : undefined}
+                      // A turn that has yet to choose its look waits in the plain one, whatever the page around it is wearing.
+                      pendingStyle={turn.id !== DOCUMENT || streamed ? neutralStyle : undefined}
                       // The newest answer gets a full window to itself, so it can be brought to
                       // the top as soon as it starts and its content arrives in view.
                       fill={turn.id !== DOCUMENT && index === turns.length - 1}

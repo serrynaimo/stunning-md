@@ -45,6 +45,8 @@ export type TurnViewProps = {
    * content — `null` for as long as there is too little of it to choose by.
    */
   opening?: string | null
+  /** The look the turn wears until it has chosen its own. */
+  pendingStyle?: React.CSSProperties
   /** Take up at least a full window, so the turn can be scrolled to the top before it has much in it. */
   fill?: boolean
   /** Report when the top of the turn has stopped moving, so a page loader can lift. */
@@ -135,6 +137,7 @@ export function TurnView({
   lockTheme = false,
   themeContext,
   opening,
+  pendingStyle,
   fill = false,
   onReady,
   classifier,
@@ -368,7 +371,7 @@ export function TurnView({
         ref={element}
         id={`${id}-turn`}
         className="smd-turn"
-        style={visible ? style : undefined}
+        style={visible ? style : pendingStyle}
         data-theme={visible ? theme.palette : undefined}
         data-fill={fill || undefined}
         // A turn that is written while you watch brings each new part in gently.
@@ -395,7 +398,7 @@ export function TurnView({
             {bubble ? (
               <p className="smd-asked" data-leaving={bubble.leaving || undefined}>
                 <span className="sr-only">Waiting for a response to: </span>
-                {bubble.text}
+                <span>{bubble.text}</span>
               </p>
             ) : (
               <p>{waiting ? "Waiting for first response ..." : writing ? `Writing “${writing}” ...` : "Stunnifying ..."}</p>

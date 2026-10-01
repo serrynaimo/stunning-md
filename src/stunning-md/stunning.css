@@ -90,7 +90,8 @@
   font-family: var(--smd-font-body);
 }
 
-.smd :focus-visible {
+/* Not for the places the page moves focus to itself when jumping to a section: those are regions, not controls. */
+.smd :focus-visible:not([data-jump]) {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
   border-radius: 2px;
@@ -226,6 +227,14 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   transition: opacity 0.4s ease;
+}
+/* It is only there until the answer starts: the first few lines are enough to recognise it by. */
+.smd-asked > span:last-child {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
 }
 /* The answer has begun: the request gives way to it. */
 .smd-asked[data-leaving] {
@@ -487,6 +496,12 @@
   color: var(--primary-foreground);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  /* A request can carry pages of pasted context: it keeps to a few lines' height and scrolls within itself. */
+  max-height: 12.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--primary-foreground) 45%, transparent) transparent;
 }
 /* A new request starts a new exchange: set it apart from the reply before it. */
 .smd-chat > .smd-chat-user:not(:first-child) {

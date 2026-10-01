@@ -175,6 +175,7 @@ The open document and the conversation so far are sent to the chat model with ea
 | `classifier` | `Classify` | — | Answers judgement calls; omit for rules only. |
 | `chat` | `Chat` | — | Lets the reader ask for content; answers are laid out on the page. |
 | `theme` | `Partial<ThemeChoice>` | — | Fix `palette`, `fonts` or `formality` (corner style). |
+| `autoTheme` | `boolean` | `true` | Choose a theme to suit each document and answer. `false` stays on one theme. |
 | `appearance` | `"auto" \| "light" \| "dark"` | `"auto"` | `auto` follows the system setting. |
 | `resolveUrl` | `(url: string) => string` | identity | Map URLs in the markdown to loadable ones. |
 | `controls` | `boolean` | `true` | Show the view switch and the theme, layout and chart pickers. |
@@ -188,6 +189,8 @@ The open document and the conversation so far are sent to the chat model with ea
 | `onPlan` | `(plan, theme) => void` | — | Inspect the decisions that were made. |
 
 A theme can also be set per document, in frontmatter: `theme: midnight`.
+
+To keep your own look throughout, switch the choosing off: `<StunningMarkdown markdown={text} autoTheme={false} theme={{ palette: "ocean" }} />` wears that one theme for the document and for everything a chat or a stream adds to it, and asks the classifier nothing about themes. Without a `palette` it stays on `paper`. Readers have the same switch — "Match the content", at the top of the theme menu: with it off, the theme they are looking at stays, and any theme they pick applies to the whole page.
 
 ### Entry points
 

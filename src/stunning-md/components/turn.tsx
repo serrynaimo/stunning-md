@@ -57,6 +57,11 @@ export type TurnViewProps = {
   fixedTheme?: Partial<ThemeChoice>
   /** A theme chosen by hand for this turn. */
   palettePick?: PaletteId | null
+  /**
+   * Choose the theme from the content. When off, nothing is asked or guessed:
+   * the turn wears `palettePick`.
+   */
+  autoTheme?: boolean
   appearance: Appearance
   resolveUrl: (url: string) => string
   controls: boolean
@@ -146,6 +151,7 @@ export function TurnView({
   classifier,
   fixedTheme,
   palettePick,
+  autoTheme = true,
   appearance,
   resolveUrl,
   controls,
@@ -209,7 +215,9 @@ export function TurnView({
   //    answer is applied as it lands — nothing waits for the reader to scroll.
   //    A turn that grows asks about its theme separately, once (see below).
   //    One that chooses its look first lets that question go ahead of the rest.
-  const awaitingTheme = lockTheme && locked === null
+  // Whether this turn picks its look from its opening and holds it; with the theme set from outside, there is nothing to pick.
+  const locking = lockTheme && autoTheme
+  const awaitingTheme = locking && locked === null
   useEffect(() => {
     if (!images || !classifier || !hasText || awaitingTheme) return
     const abort = new AbortController()
@@ -217,7 +225,7 @@ export function TurnView({
     judgeDocument(structural, prose, classifier, {
       signal: abort.signal,
       themeHint: keywordTheme ?? undefined,
-      skipTheme: lockTheme,
+      skipTheme: lockTheme || !autoTheme,
       onProgress: (progress) => {
         setJudged(progress.judgements)
         setPending(progress.pending)
@@ -228,7 +236,7 @@ export function TurnView({
       setPending([])
     })
     return () => abort.abort()
-  }, [images, classifier, parsed, prose, keywordTheme, prefix, hasText, lockTheme, awaitingTheme])
+  }, [images, classifier, parsed, prose, keywordTheme, prefix, hasText, lockTheme, autoTheme, awaitingTheme])
 
   const plan = useMemo(
     () =>
@@ -252,23 +260,23 @@ export function TurnView({
   // `seed` is that opening: the turn's text when it first had any.
   const [seed, setSeed] = useState<string | null>(null)
   // A document already on the page that starts to grow keeps the look it has.
-  const [wasLocking, setWasLocking] = useState(lockTheme)
-  if (lockTheme !== wasLocking) {
-    setWasLocking(lockTheme)
-    if (lockTheme && !locked && hasText) setLocked(suggested)
+  const [wasLocking, setWasLocking] = useState(locking)
+  if (locking !== wasLocking) {
+    setWasLocking(locking)
+    if (locking && !locked && hasText) setLocked(suggested)
   }
   // Frontmatter alone says too little to choose by: wait for the first words of the text itself.
   const seedSource = opening === undefined ? (bodyText.trim() ? markdown : null) : opening
-  if (lockTheme && seed === null && seedSource) setSeed(seedSource)
+  if (locking && seed === null && seedSource) setSeed(seedSource)
   const seedTheme = useMemo<ThemeChoice | null>(() => {
     if (seed === null) return null
     const words = `${toText(parseMarkdown(seed).root)} ${themeContext ?? ""}`
     return themeChoice(matchTheme(words, { codeBlocks: (seed.match(/^```/gm) ?? []).length / 2, tables: 0 }) ?? "paper")
   }, [seed, themeContext])
   // Without a classifier the opening's own words decide.
-  if (lockTheme && !locked && seedTheme && !classifier) setLocked(seedTheme)
+  if (locking && !locked && seedTheme && !classifier) setLocked(seedTheme)
   useEffect(() => {
-    if (!lockTheme || seed === null || !seedTheme || !classifier) return
+    if (!locking || seed === null || !seedTheme || !classifier) return
     let live = true
     const settle = (choice: ThemeChoice) => live && setLocked((current) => current ?? choice)
     // An answer should not sit unseen while a slow classifier makes up its mind.
@@ -289,18 +297,18 @@ export function TurnView({
       live = false
       clearTimeout(timer)
     }
-  }, [lockTheme, seed, seedTheme, classifier, prefix, themeContext, maxWaitMs])
+  }, [locking, seed, seedTheme, classifier, prefix, themeContext, maxWaitMs])
 
   const theme = useMemo<ThemeChoice>(() => {
     const fromFrontmatter = parsed.frontmatter.theme
     const picked = palettePick ?? (typeof fromFrontmatter === "string" && fromFrontmatter in themes ? (fromFrontmatter as PaletteId) : null)
-    const base = picked ? themeChoice(picked) : lockTheme ? (locked ?? suggested) : suggested
+    const base = picked ? themeChoice(picked) : locking ? (locked ?? suggested) : suggested
     return { ...base, ...fixedTheme }
-  }, [parsed, palettePick, lockTheme, locked, suggested, fixedTheme])
+  }, [parsed, palettePick, locking, locked, suggested, fixedTheme])
 
   const fontsReady = useFonts(googleFontsUrl(fontPairings[theme.fonts]), loadFonts)
   // A turn that chooses its look from its opening has none until that choice is made.
-  const themed = !lockTheme || locked !== null
+  const themed = !locking || locked !== null
   const visible = measured && hasText && themed
 
   // 3. Say when the top of the turn has stopped moving: the theme and its fonts

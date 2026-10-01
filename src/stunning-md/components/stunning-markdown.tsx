@@ -36,6 +36,13 @@ export type StunningMarkdownProps = {
   classifier?: Classify
   /** Fixes parts of the theme — palette, typefaces or corner style — overriding everything else. */
   theme?: Partial<ThemeChoice>
+  /**
+   * Choose a theme to suit each document and each answer. Default `true`. Set
+   * it to `false` to stay on one theme throughout — `theme.palette` if given,
+   * otherwise `paper` — with nothing asked of the classifier about it. The
+   * reader can switch it either way from the theme menu.
+   */
+  autoTheme?: boolean
   /** `auto` follows the reader's system setting. */
   appearance?: Appearance | "auto"
   /** Maps URLs in the markdown (e.g. relative image paths) to loadable ones. */
@@ -122,6 +129,7 @@ function Page({
   onMarkdownChange,
   classifier,
   theme: fixedTheme,
+  autoTheme: autoThemeProp = true,
   appearance: appearanceProp = "auto",
   resolveUrl = identity,
   controls = true,
@@ -223,9 +231,17 @@ function Page({
   }, [position.active, turns, reports])
   const system = useSystemAppearance()
   const appearance: Appearance = appearancePick ?? (appearanceProp === "auto" ? system : appearanceProp)
+  // Themes follow the content, each turn its own — unless that is switched off,
+  // in which case one theme is worn by the whole page and everything added to it.
+  const [autoTheme, setAutoTheme] = useState(autoThemeProp)
+  const [pagePick, setPagePick] = useState<PaletteId | null>(null)
+  const pageTheme: PaletteId = pagePick ?? fixedTheme?.palette ?? "paper"
   const theme = useMemo<ThemeChoice>(
-    () => ({ ...((activeTurn && reports[activeTurn]?.theme) || themeChoice(palettePicks[""] ?? "ink")), ...fixedTheme }),
-    [activeTurn, reports, palettePicks, fixedTheme],
+    () => ({
+      ...(autoTheme ? (activeTurn && reports[activeTurn]?.theme) || themeChoice(palettePicks[""] ?? "ink") : themeChoice(pageTheme)),
+      ...fixedTheme,
+    }),
+    [autoTheme, pageTheme, activeTurn, reports, palettePicks, fixedTheme],
   )
   const style = useMemo(() => themeVars(theme, appearance), [theme, appearance])
   // The conversation is not part of any one answer: its sidebar and input keep a
@@ -316,7 +332,13 @@ function Page({
       menu={menu}
       view={view}
       onView={setView}
-      onPalette={(palette) => setPalettePicks((all) => ({ ...all, [activeTurn ?? ""]: palette }))}
+      onPalette={(palette) => (autoTheme ? setPalettePicks((all) => ({ ...all, [activeTurn ?? ""]: palette })) : setPagePick(palette))}
+      autoTheme={autoTheme}
+      onAutoTheme={(next) => {
+        // Staying on a theme means staying on the one in front of the reader.
+        if (!next) setPagePick(theme.palette)
+        setAutoTheme(next)
+      }}
       onAppearance={setAppearancePick}
     />
   )
@@ -376,7 +398,8 @@ function Page({
                       onReady={turn.id === DOCUMENT && !streamed ? markReady : undefined}
                       classifier={classifier}
                       fixedTheme={fixedTheme}
-                      palettePick={palettePicks[turn.id] ?? null}
+                      palettePick={autoTheme ? (palettePicks[turn.id] ?? null) : pageTheme}
+                      autoTheme={autoTheme}
                       appearance={appearance}
                       resolveUrl={resolveUrl}
                       controls={controls}

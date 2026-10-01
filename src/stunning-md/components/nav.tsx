@@ -3,7 +3,7 @@
 import { CheckIcon, CodeIcon, FileTextIcon, MenuIcon, MoonIcon, PaletteIcon, PanelRightCloseIcon, PanelRightOpenIcon, SparklesIcon, SunIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { themeList, themeTopics } from "../theme/themes"
@@ -192,6 +192,8 @@ export function Nav({
   view,
   onView,
   onPalette,
+  autoTheme,
+  onAutoTheme,
   onAppearance,
 }: {
   /** The title of what is being read, if it has one. */
@@ -225,6 +227,9 @@ export function Nav({
   view: View
   onView: (view: View) => void
   onPalette: (palette: PaletteId) => void
+  /** Whether themes are chosen to suit the content, and the reader's switch for it. */
+  autoTheme: boolean
+  onAutoTheme: (auto: boolean) => void
   onAppearance: (appearance: Appearance) => void
 }) {
   const { portal, theme, appearance, controls } = useStunning()
@@ -262,6 +267,12 @@ export function Nav({
                 <PaletteIcon />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" style={portal.style} className={cn(portal.className, "max-h-[min(34rem,var(--available-height))] w-56 overflow-y-auto")}>
+                <DropdownMenuGroup>
+                  <DropdownMenuCheckboxItem checked={autoTheme} onCheckedChange={(checked) => onAutoTheme(checked)} title="Choose a theme to suit each document and answer">
+                    Match the content
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
                 {/* Arranged by subject, so a theme is found by what the document is about. */}
                 {themeTopics.map((topic) => (
                   <DropdownMenuGroup key={topic.id}>
@@ -273,7 +284,7 @@ export function Nav({
                           <span
                             aria-hidden
                             className="size-4 shrink-0 rounded-full ring-1 ring-foreground/15"
-                            style={{ background: `linear-gradient(135deg, ${item[appearance].bg} 50%, ${(item[appearance].highlight?.bg ?? item[appearance].accent)} 50%)` }}
+                            style={{ background: `linear-gradient(135deg, ${item[appearance].bg} 50%, ${item[appearance].accent} 50%)` }}
                           />
                           {item.name}
                           {item.id === theme.palette && <CheckIcon className="ml-auto" />}

@@ -159,6 +159,7 @@ function ViewSwitch({ view, onView }: { view: View; onView: (view: View) => void
 
 export function Nav({
   title,
+  titleTarget,
   crumb,
   contents,
   root,
@@ -170,8 +171,10 @@ export function Nav({
   onPalette,
   onAppearance,
 }: {
-  /** The page's title, if it has one. */
+  /** The title of what is being read, if it has one. */
   title: string
+  /** The element the title leads back to; the top of the page if not given. */
+  titleTarget?: string
   /** The section being read. */
   crumb: string | null
   /** What the contents menu holds on narrow screens, or `null` if there is nothing to list. */
@@ -204,10 +207,11 @@ export function Nav({
       <div className="smd-container flex h-12 items-center gap-2">
         {title && (
           <a
-            href="#top"
+            href={`#${titleTarget ?? "top"}`}
             onClick={(event) => {
               event.preventDefault()
-              window.scrollTo({ top: (root.current?.getBoundingClientRect().top ?? 0) + window.scrollY, behavior: "smooth" })
+              if (titleTarget) scrollToId(titleTarget)
+              else window.scrollTo({ top: (root.current?.getBoundingClientRect().top ?? 0) + window.scrollY, behavior: "smooth" })
             }}
             className="smd-nav-title min-w-0 truncate"
           >

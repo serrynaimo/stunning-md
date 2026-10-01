@@ -237,7 +237,8 @@ function Page({
     />
   )
 
-  const title = turns.map((turn) => reports[turn.id]?.plan.hero.titleText).find(Boolean) ?? ""
+  // The bar names the turn being read; a turn without a title of its own is named by its section alone.
+  const title = (activeTurn && reports[activeTurn]?.plan.hero.titleText) || ""
   const crumb = useMemo(() => {
     for (const turn of turns) {
       const toc = reports[turn.id]?.plan.toc ?? []
@@ -264,6 +265,7 @@ function Page({
     <Nav
       scoped={!!chat}
       title={title}
+      titleTarget={activeTurn ? `${activeTurn}-turn` : undefined}
       crumb={crumb}
       contents={hasContents ? { label: chat ? "Chat" : "Contents", description: meta, showTitle: !chat, style: chatStyle, render: renderContents } : null}
       root={root}

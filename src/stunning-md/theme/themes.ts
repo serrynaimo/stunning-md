@@ -173,12 +173,12 @@ export const themes: Record<PaletteId, Theme> = {
   midnight: {
     id: "midnight",
     name: "Midnight",
-    description: "space, science fiction, games, futurism",
+    description: "night-time, space, science fiction, games, nightlife",
     look: "deep indigo, electric cyan",
     fonts: "geometric",
     formality: 0.4,
     chart: "instrument",
-    keywords: /\b(space|galaxy|star|orbit|planet|astronom\w+|game|gaming|cyber\w*|future|sci-?fi|night|cinematic|neon)\b/gi,
+    keywords: /\b(space|galaxy|stars?|orbit|planet|astronom\w+|game|gaming|cyber\w*|future|sci-?fi|night|dark|dusk|cinematic|neon|milky way)\b/gi,
     light: tokens("#f6f6fc", "#eaeaf7", "#14132b", "#5a5980", "#d7d6ee", "#3d2fd0", "#ffffff"),
     dark: tokens("#07071a", "#10102a", "#ecebff", "#9c9bc6", "#232350", "#5ee6ff", "#03141a"),
   },
@@ -506,22 +506,29 @@ export function themeChoice(id: PaletteId): ThemeChoice {
 }
 
 /**
- * Picks a theme from the words in the document — the fallback when no classifier
- * is configured, and what the loader is drawn in while the classifier decides.
+ * The theme whose vocabulary stands out in the text, or `null` when none does.
+ * This is evidence from the words themselves, independent of any classifier.
  */
-export function guessTheme(text: string, stats: { codeBlocks: number; tables: number }): ThemeChoice {
+export function matchTheme(text: string, stats: { codeBlocks: number; tables: number }): PaletteId | null {
   const words = Math.max(200, text.split(/\s+/).length)
-  let best: Theme = themes.paper
-  let bestScore = 0
+  let best: PaletteId | null = null
+  let bestScore = 0.6
   for (const theme of themeList) {
     let score = ((text.match(theme.keywords) ?? []).length / words) * 100
     // Code and tables hint at a genre, but only words can confirm it.
     if (theme.id === "terminal") score += Math.min(3, stats.codeBlocks * 0.75)
     if (theme.id === "ocean" && score > 0) score += Math.min(0.6, stats.tables * 0.15)
-    if (score > bestScore) [best, bestScore] = [theme, score]
+    if (score > bestScore) [best, bestScore] = [theme.id, score]
   }
-  if (bestScore < 0.6) best = themes.paper
-  return themeChoice(best.id)
+  return best
+}
+
+/**
+ * Picks a theme from the words in the document — the fallback when no classifier
+ * is configured, and what the loader is drawn in while the classifier decides.
+ */
+export function guessTheme(text: string, stats: { codeBlocks: number; tables: number }): ThemeChoice {
+  return themeChoice(matchTheme(text, stats) ?? "paper")
 }
 
 /**

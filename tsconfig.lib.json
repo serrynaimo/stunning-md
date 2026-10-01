@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "noEmit": false,
+    "plugins": []
+  },
+  "include": ["src/stunning-md/**/*", "src/components/ui/**/*", "src/lib/**/*"]
+}

@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckIcon, MenuIcon, MoonIcon, PaletteIcon, PanelRightCloseIcon, PanelRightOpenIcon, SunIcon } from "lucide-react"
+import { CheckIcon, CodeIcon, FileTextIcon, MenuIcon, MoonIcon, PaletteIcon, PanelRightCloseIcon, PanelRightOpenIcon, SparklesIcon, SunIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -111,11 +111,58 @@ export function TocSidebar({ plan, active, id }: { plan: DocumentPlan; active: s
   )
 }
 
+/** How the document is shown: its raw text, an ordinary rendering, or the designed page. */
+export type View = "source" | "plain" | "designed"
+
+const VIEWS: { id: View; label: string; icon: typeof CodeIcon }[] = [
+  { id: "source", label: "Markdown text", icon: CodeIcon },
+  { id: "plain", label: "Plain rendering", icon: FileTextIcon },
+  { id: "designed", label: "Stunning", icon: SparklesIcon },
+]
+
+/** A three-position switch between the views, with a thumb that slides to the chosen one. */
+function ViewSwitch({ view, onView }: { view: View; onView: (view: View) => void }) {
+  const group = useRef<HTMLDivElement>(null)
+  const index = VIEWS.findIndex((item) => item.id === view)
+  const move = (step: number) => {
+    const next = Math.min(VIEWS.length - 1, Math.max(0, index + step))
+    onView(VIEWS[next].id)
+    group.current?.querySelectorAll("button")[next]?.focus()
+  }
+  return (
+    <div ref={group} role="radiogroup" aria-label="View" className="smd-view-switch" style={{ "--smd-view-index": index } as React.CSSProperties}>
+      <span className="smd-view-thumb" aria-hidden />
+      {VIEWS.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          role="radio"
+          aria-checked={item.id === view}
+          aria-label={item.label}
+          title={item.label}
+          tabIndex={item.id === view ? 0 : -1}
+          onClick={() => onView(item.id)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight" || event.key === "ArrowDown") move(1)
+            else if (event.key === "ArrowLeft" || event.key === "ArrowUp") move(-1)
+            else return
+            event.preventDefault()
+          }}
+        >
+          <item.icon aria-hidden />
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function Nav({
   plan,
   root,
   position,
   sidebar,
+  view,
+  onView,
   onPalette,
   onAppearance,
 }: {
@@ -123,19 +170,23 @@ export function Nav({
   root: React.RefObject<HTMLElement | null>
   position: ReadingPosition
   sidebar: SidebarState
+  view: View
+  onView: (view: View) => void
   onPalette: (palette: PaletteId) => void
   onAppearance: (appearance: Appearance) => void
 }) {
   const { portal, theme, appearance, controls } = useStunning()
   const [open, setOpen] = useState(false)
   const { active, bar } = position
+  // The raw text has no headings to jump to.
+  const hasToc = plan.showToc && view !== "source"
   const activeTop = plan.toc.find((entry) => entry.id === active)
   const current = activeTop ? (plan.toc.slice(0, plan.toc.indexOf(activeTop) + 1).findLast((e) => e.depth === 0) ?? activeTop) : null
 
   if (!plan.showToc && !controls) return null
 
   return (
-    <nav className="smd-nav" aria-label="Document" data-sidebar={(plan.showToc && sidebar.available && sidebar.open) || undefined}>
+    <nav className="smd-nav" aria-label="Document" data-sidebar={(sidebar.available && sidebar.open) || undefined}>
       <div className="smd-container flex h-12 items-center gap-2">
         {plan.hero.titleText && (
           <a
@@ -156,6 +207,7 @@ export function Nav({
           </span>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          {controls && <ViewSwitch view={view} onView={onView} />}
           {controls && (
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Choose theme" title="Theme" />}>
@@ -188,7 +240,7 @@ export function Nav({
           >
             {appearance === "dark" ? <SunIcon /> : <MoonIcon />}
           </Button>
-          {plan.showToc && sidebar.available && (
+          {sidebar.available && (
             <Button
               variant="ghost"
               size="sm"
@@ -202,7 +254,7 @@ export function Nav({
               <span>Contents</span>
             </Button>
           )}
-          {plan.showToc && !sidebar.available && (
+          {hasToc && !sidebar.available && (
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger render={<Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5" aria-label="Open table of contents" />}>
                 <MenuIcon />

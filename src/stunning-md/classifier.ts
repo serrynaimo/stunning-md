@@ -89,9 +89,14 @@ export function documentDigest(plan: DocumentPlan, prose: string): string {
     .join("\n")
 }
 
+/** How much probability a keyword match is worth when weighing the classifier's theme options. */
+const HINT_WEIGHT = 0.25
+
 export type JudgeOptions = {
-  /** Minimum confidence before the classifier's theme is accepted over the keyword guess. */
+  /** Minimum score before the classifier's theme is accepted over the keyword guess. */
   confidence?: number
+  /** The theme the document's own keywords point to, if any (see `matchTheme`). */
+  themeHint?: PaletteId
   /** Requests in flight at once. Default 3. */
   concurrency?: number
   /** Upper bound on tables sent for a form judgement. */
@@ -150,8 +155,18 @@ export async function judgeDocument(
       questions: { theme: { type: "choice", criteria: Object.fromEntries(themeList.map((t) => [t.id, describeTheme(t)])) } },
     },
     ({ theme }) => {
-      if (theme?.type !== "choice" || theme.confidence < threshold || !(theme.choice in themes)) return
-      const chosen = themes[theme.choice as PaletteId]
+      if (theme?.type !== "choice") return
+      // The document's own vocabulary counts as evidence too: it settles close
+      // calls, but cannot overturn a classifier that is sure of itself.
+      const odds: Record<string, number> = theme.probabilities ?? { [theme.choice]: theme.confidence }
+      let best = ""
+      let bestScore = 0
+      for (const id of Object.keys(odds)) {
+        const score = odds[id] + (id === options.themeHint ? HINT_WEIGHT : 0)
+        if (id in themes && score > bestScore) [best, bestScore] = [id, score]
+      }
+      if (!best || bestScore < threshold) return
+      const chosen = themes[best as PaletteId]
       judgements.theme = { palette: chosen.id, fonts: chosen.fonts, formality: chosen.formality }
     },
   )

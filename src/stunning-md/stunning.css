@@ -7,6 +7,62 @@
  * a wide desktop without breakpoints for type.
  */
 
+/*
+ * A reset confined to the component and its popovers, so it renders the same
+ * whether or not the host page has one of its own.
+ */
+@layer base {
+  :where(.smd, .smd-portal),
+  :where(.smd, .smd-portal) :where(*, ::before, ::after) {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border-width: 0;
+    border-style: solid;
+    border-color: var(--border);
+  }
+  :where(.smd, .smd-portal) :where(h1, h2, h3, h4, h5, h6) {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  :where(.smd, .smd-portal) :where(ol, ul, menu) {
+    list-style: none;
+  }
+  :where(.smd, .smd-portal) :where(a) {
+    color: inherit;
+    text-decoration: inherit;
+  }
+  :where(.smd, .smd-portal) :where(img, svg, video, canvas) {
+    display: block;
+    vertical-align: middle;
+  }
+  :where(.smd, .smd-portal) :where(img, video) {
+    max-width: 100%;
+    height: auto;
+  }
+  :where(.smd, .smd-portal) :where(button, input, textarea, select) {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background-color: transparent;
+    border-radius: 0;
+  }
+  :where(.smd, .smd-portal) :where(button, [role="button"]) {
+    cursor: pointer;
+  }
+  :where(.smd, .smd-portal) :where(table) {
+    border-collapse: collapse;
+    text-indent: 0;
+  }
+  :where(.smd, .smd-portal) :where(code, kbd, samp, pre) {
+    font-family: var(--smd-font-mono, ui-monospace, monospace);
+    font-size: 1em;
+  }
+  :where(.smd-portal) {
+    color: var(--popover-foreground);
+  }
+}
+
 @layer components {
 
 .smd {
@@ -1106,6 +1162,209 @@ img.smd-frame {
   color: var(--muted-foreground);
 }
 
+/* --- Plain markdown view ----------------------------------------------------------
+ * The document as any markdown renderer would show it: one column, system
+ * type, conventional sizes. Only the theme's colours carry over. */
+
+.smd-plain {
+  max-width: 54rem;
+  margin-inline: auto;
+  padding: clamp(1.5rem, 4vw, 3rem) var(--smd-gutter) clamp(4rem, 8vw, 6rem);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.smd-plain > * + * {
+  margin-top: 1rem;
+}
+.smd-plain :where(h1, h2, h3, h4, h5, h6) {
+  margin-top: 1.5em;
+  font-weight: 650;
+  line-height: 1.25;
+  scroll-margin-top: calc(var(--smd-nav-h) + 1rem);
+}
+.smd-plain > :first-child {
+  margin-top: 0;
+}
+.smd-plain h1 {
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border);
+}
+.smd-plain h2 {
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border);
+}
+.smd-plain h3 {
+  font-size: 1.25em;
+}
+.smd-plain h4 {
+  font-size: 1em;
+}
+.smd-plain :where(h5, h6) {
+  font-size: 0.875em;
+  color: var(--muted-foreground);
+}
+.smd-plain a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.smd-plain :where(ul, ol):not(.smd-tasks) {
+  padding-left: 2em;
+}
+.smd-plain ul:not(.smd-tasks) {
+  list-style: disc;
+}
+.smd-plain ol {
+  list-style: decimal;
+}
+.smd-plain li + li,
+.smd-plain li > :where(ul, ol) {
+  margin-top: 0.25em;
+}
+.smd-plain blockquote {
+  padding: 0 1em;
+  border-left: 0.25em solid var(--border);
+  color: var(--muted-foreground);
+}
+.smd-plain blockquote > * + * {
+  margin-top: 0.75em;
+}
+.smd-plain hr {
+  height: 0.25em;
+  border: 0;
+  background: var(--border);
+  margin-block: 1.5rem;
+}
+.smd-plain .smd-inline-image {
+  display: inline-block;
+  max-height: none;
+  max-width: 100%;
+  height: auto;
+  vertical-align: bottom;
+}
+.smd-plain-table {
+  overflow-x: auto;
+}
+.smd-plain-table table {
+  border-collapse: collapse;
+  font-size: 0.9375em;
+}
+.smd-plain-table :where(th, td) {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+.smd-plain-table th {
+  font-weight: 650;
+}
+.smd-plain-table tbody tr:nth-child(even) {
+  background: var(--card);
+}
+
+.smd-source {
+  max-width: 62rem;
+  margin-inline: auto;
+  padding: clamp(1rem, 3vw, 2rem) var(--smd-gutter) clamp(4rem, 8vw, 6rem);
+}
+.smd-source-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+.smd-source pre,
+.smd-source-edit::after,
+.smd-source-edit textarea {
+  font-family: var(--smd-font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+/* An editor that grows with its text: the hidden copy sets the height, the field covers it. */
+.smd-source-edit {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.2);
+  background: var(--card);
+}
+.smd-source-edit::after {
+  content: attr(data-value) " ";
+  visibility: hidden;
+}
+.smd-source-edit::after,
+.smd-source-edit textarea {
+  grid-area: 1 / 1;
+  padding: 1rem 1.1rem;
+  min-height: 60svh;
+}
+.smd-source-edit textarea {
+  resize: none;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  border-radius: inherit;
+}
+.smd-source-edit textarea:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -1px;
+}
+
+/* The view switch: three positions and a thumb that slides between them. */
+.smd-view-switch {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(3, 1.625rem);
+  height: 1.875rem;
+  padding: 0.125rem;
+  margin-right: 0.375rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 9%, transparent);
+}
+.smd-view-thumb {
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1.625rem;
+  height: 1.625rem;
+  border-radius: 999px;
+  background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+  transform: translateX(calc(var(--smd-view-index) * 100%));
+  transition: transform 0.22s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.smd-view-switch button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  transition: color 0.15s;
+}
+.smd-view-switch button[aria-checked="true"] {
+  color: var(--foreground);
+}
+.smd-view-switch button:hover {
+  color: var(--foreground);
+}
+.smd-view-switch svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .smd-view-thumb {
+    transition: none;
+  }
+}
+
 /* --- Loading -----------------------------------------------------------------------
  * The document is laid out underneath the loader (hidden, inert) so that late
  * decisions settle out of sight; the loader lifts once the top has stopped moving. */
@@ -1131,9 +1390,7 @@ img.smd-frame {
   gap: 1.25rem;
 }
 .smd-loader p {
-  font-size: 0.8125rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.9375rem;
   color: var(--muted-foreground);
 }
 .smd-loader-mark {
@@ -1204,6 +1461,7 @@ img.smd-frame {
 }
 
 @media print {
+  .smd-view-switch,
   .smd-sidebar,
   .smd-nav,
   .smd-section-menu,

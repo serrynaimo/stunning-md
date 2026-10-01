@@ -1,6 +1,6 @@
 "use client"
 
-import { FileTextIcon, FolderOpenIcon, UploadIcon, XIcon } from "lucide-react"
+import { ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, UploadIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -12,6 +12,17 @@ const SAMPLES = [
   { id: "kyoto", title: "Travel journal", note: "Banner, full-screen photos, a slideshow" },
   { id: "readme", title: "Project README", note: "Logo, badges, code, maths, task lists" },
   { id: "essay", title: "Long-form essay", note: "Reading layout, quotations, footnotes" },
+  { id: "after-dark", title: "Night photography guide", note: "Full-screen photos, cards, a light curve" },
+  { id: "roastery", title: "Roastery journal", note: "Photo pairs, menu cards, a roast curve" },
+]
+
+/** The open-source projects this is built on, and what each one does here. */
+const INGREDIENTS = [
+  { name: "Next.js", role: "The app and its static export", href: "https://nextjs.org" },
+  { name: "shadcn/ui", role: "Menus, sheets, dialogs and buttons", href: "https://ui.shadcn.com" },
+  { name: "Generative Charts", role: "Tables drawn as charts", href: "https://generativecharts.com" },
+  { name: "remark", role: "Markdown parsed into a tree", href: "https://remark.js.org" },
+  { name: "TinyJev", role: "Judgement calls on theme and layout", href: "https://huggingface.co/AnkitAI/TinyJev-4B" },
 ]
 
 const MARKDOWN = /\.(md|markdown|mdx|txt)$/i
@@ -33,6 +44,33 @@ type Loaded = {
 const siteClassifier = createClassifier({ endpoint: `${BASE}/api/classify` })
 
 const normalise = (path: string) => decodeURIComponent(path).replace(/^\.?\//, "").split(/[?#]/)[0]
+
+const INSTALL = "npm i stunning-md"
+
+/** The one line that puts the library in someone's project, with a button to copy it. */
+function InstallCommand() {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(INSTALL)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1600)
+    } catch {
+      // Clipboard access can be refused; the command stays selectable.
+    }
+  }
+  return (
+    <div className="flex items-center gap-1 rounded-lg border bg-muted/50 py-1 pr-1 pl-3 font-mono text-sm">
+      <span className="select-none text-muted-foreground" aria-hidden>
+        $
+      </span>
+      <code className="px-1">{INSTALL}</code>
+      <Button variant="ghost" size="icon-sm" onClick={copy} aria-label={copied ? "Copied" : "Copy install command"} title="Copy">
+        {copied ? <CheckIcon /> : <CopyIcon />}
+      </Button>
+    </div>
+  )
+}
 
 export default function Home() {
   const [doc, setDoc] = useState<Loaded | null>(null)
@@ -121,7 +159,7 @@ export default function Home() {
   if (doc) {
     return (
       <>
-        <StunningMarkdown markdown={doc.markdown} classifier={classifier} resolveUrl={resolveUrl} />
+        <StunningMarkdown markdown={doc.markdown} classifier={classifier} resolveUrl={resolveUrl} editable />
         <div className="fixed right-4 bottom-4 z-50 flex items-center gap-1 rounded-full border bg-background/90 py-1 pr-1 pl-3.5 text-sm shadow-lg backdrop-blur">
           <FileTextIcon className="size-3.5 text-muted-foreground" aria-hidden />
           <span className="max-w-[40vw] truncate">{doc.name}</span>
@@ -137,11 +175,32 @@ export default function Home() {
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center gap-10 px-5 py-16 sm:px-8">
       <header className="flex flex-col gap-4">
         <p className="font-mono text-sm text-muted-foreground">stunning-md</p>
-        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-6xl">Markdown in. A designed website out.</h1>
+        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-6xl">Markdown in. A beautifully designed website out.</h1>
         <p className="max-w-2xl text-lg text-pretty text-muted-foreground">
           Open a markdown file and it is laid out section by section — from its structure, the size of its images and the
           shape of its tables — then themed to suit what it says.
         </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
+          <InstallCommand />
+          <a
+            href="https://github.com/serrynaimo/stunning-md#use-it"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-sm font-medium underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground"
+          >
+            Use it in your React app
+            <ArrowUpRightIcon className="ml-1 inline size-3.5 align-[-0.1em] text-muted-foreground" aria-hidden />
+          </a>
+          <a
+            href="https://github.com/serrynaimo/stunning-md"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-sm font-medium underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground"
+          >
+            Explore code on GitHub
+            <ArrowUpRightIcon className="ml-1 inline size-3.5 align-[-0.1em] text-muted-foreground" aria-hidden />
+          </a>
+        </div>
       </header>
 
       <div
@@ -209,7 +268,7 @@ export default function Home() {
         <h2 id="samples" className="text-sm font-medium text-muted-foreground">
           Or try a sample
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {SAMPLES.map((sample) => (
             <button
               key={sample.id}
@@ -224,7 +283,35 @@ export default function Home() {
         </div>
       </section>
 
-      {site === "missing" && <OwnClassifierForm current={own} />}
+      <section aria-labelledby="ingredients" className="flex flex-col gap-3">
+        <h2 id="ingredients" className="text-sm font-medium text-muted-foreground">
+          Made with
+        </h2>
+        <ul className="grid grid-cols-2 gap-x-6 gap-y-4 border-y py-5 sm:grid-cols-3 lg:grid-cols-5">
+          {INGREDIENTS.map((item) => (
+            <li key={item.name}>
+              <a
+                href={item.href}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="group flex flex-col gap-0.5 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <span className="font-medium underline decoration-foreground/25 underline-offset-4 group-hover:decoration-foreground">
+                  {item.name}
+                  <ArrowUpRightIcon className="ml-1 inline size-3.5 align-[-0.1em] text-muted-foreground" aria-hidden />
+                </span>
+                <span className="text-sm text-pretty text-muted-foreground">{item.role}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {site === "missing" && (
+        <div className="mt-8">
+          <OwnClassifierForm current={own} />
+        </div>
+      )}
 
       <p className="text-sm text-muted-foreground">
         Your file is parsed and rendered in the browser.{" "}

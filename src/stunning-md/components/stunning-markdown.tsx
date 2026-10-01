@@ -8,11 +8,12 @@ import { proseOf, toText } from "../analyze/text"
 import { judgeDocument, type Classify } from "../classifier"
 import { parseMarkdown } from "../parse"
 import { chartThemeFor } from "../theme/chart"
-import { fontPairings, googleFontsUrl, guessTheme, themeChoice, themes, themeVars } from "../theme/themes"
+import { fontPairings, googleFontsUrl, matchTheme, themeChoice, themes, themeVars } from "../theme/themes"
 import type { Appearance, DocumentPlan, Judgements, PaletteId, SectionLayout, ThemeChoice, VizKind } from "../types"
 import { StunningProvider, type StunningContext } from "./context"
 import { HeroView } from "./hero"
-import { Nav, TocSidebar, useReadingPosition } from "./nav"
+import { Nav, TocSidebar, useReadingPosition, type View } from "./nav"
+import { PlainDocument, SourceView } from "./plain"
 import { SectionView } from "./section"
 
 export type StunningMarkdownProps = {
@@ -28,6 +29,10 @@ export type StunningMarkdownProps = {
   appearance?: Appearance | "auto"
   /** Maps URLs in the markdown (e.g. relative image paths) to loadable ones. */
   resolveUrl?: (url: string) => string
+  /** Let the reader edit the text in the markdown view. Edits stay in the page unless you handle `onMarkdownChange`. */
+  editable?: boolean
+  /** Called with the new text when the reader's edits are applied. */
+  onMarkdownChange?: (markdown: string) => void
   /** Show the theme, layout and chart-form pickers. Default `true`. */
   controls?: boolean
   /** Load the theme's typefaces from Google Fonts. Default `true`. */
@@ -121,7 +126,9 @@ function useWide(target: React.RefObject<HTMLElement | null>, minWidth: number):
 const FIRST_SCREENS = 2
 
 function Document({
-  markdown,
+  markdown: initialMarkdown,
+  editable = false,
+  onMarkdownChange,
   classifier,
   theme: fixedTheme,
   appearance: appearanceProp = "auto",
@@ -134,9 +141,17 @@ function Document({
   onPlan,
 }: StunningMarkdownProps) {
   const root = useRef<HTMLDivElement>(null)
+  // The text being rendered, and — while it is being edited — the text in the editor.
+  const [markdown, setMarkdown] = useState(initialMarkdown)
+  const [draft, setDraft] = useState(initialMarkdown)
   const parsed = useMemo(() => parseMarkdown(markdown), [markdown])
   const bodyText = useMemo(() => toText(parsed.root), [parsed])
   const prose = useMemo(() => proseOf(parsed.root), [parsed])
+  // What the document's own vocabulary suggests, before any classifier is asked.
+  const keywordTheme = useMemo(() => {
+    const stats = { codeBlocks: (markdown.match(/^```/gm) ?? []).length / 2, tables: (markdown.match(/^\|?\s*:?-{3,}/gm) ?? []).length }
+    return matchTheme(bodyText, stats)
+  }, [markdown, bodyText])
 
   const [images, setImages] = useState<ImageMetaMap | null>(null)
   const [judged, setJudged] = useState<Judgements | null>(null)
@@ -147,6 +162,19 @@ function Document({
   const [vizPicks, setVizPicks] = useState<Record<string, VizKind>>({})
   const [palettePick, setPalettePick] = useState<PaletteId | null>(null)
   const [appearancePick, setAppearancePick] = useState<Appearance | null>(null)
+  const [view, setView] = useState<View>("designed")
+  // Edits are applied on leaving the editor, not per keystroke: re-planning and
+  // re-asking the classifier for every character would be wasteful and jumpy.
+  const changeView = useCallback(
+    (next: View) => {
+      if (draft !== markdown) {
+        setMarkdown(draft)
+        onMarkdownChange?.(draft)
+      }
+      setView(next)
+    },
+    [draft, markdown, onMarkdownChange],
+  )
 
   // 1. Measure images — their size decides hero, full-bleed and split layouts.
   useEffect(() => {
@@ -168,6 +196,7 @@ function Document({
     const structural = planDocument({ root: parsed.root, frontmatter: parsed.frontmatter, images })
     judgeDocument(structural, prose, classifier, {
       signal: abort.signal,
+      themeHint: keywordTheme ?? undefined,
       onProgress: (progress) => {
         setJudged(progress.judgements)
         setPending(progress.pending)
@@ -178,7 +207,7 @@ function Document({
       setPending([])
     })
     return () => abort.abort()
-  }, [images, classifier, parsed, prose])
+  }, [images, classifier, parsed, prose, keywordTheme])
 
   const plan = useMemo(
     () =>
@@ -192,15 +221,14 @@ function Document({
   )
 
   const theme = useMemo<ThemeChoice>(() => {
-    const stats = { codeBlocks: (markdown.match(/^```/gm) ?? []).length / 2, tables: (markdown.match(/^\|?\s*:?-{3,}/gm) ?? []).length }
     const fromFrontmatter = parsed.frontmatter.theme
     const picked =
       palettePick ?? (typeof fromFrontmatter === "string" && fromFrontmatter in themes ? (fromFrontmatter as PaletteId) : null)
     // A theme is a whole look — colours, typefaces and corner style travel together —
     // whether it was guessed from keywords, chosen by the classifier or picked by hand.
-    const merged = picked ? themeChoice(picked) : { ...guessTheme(bodyText, stats), ...judged?.theme }
+    const merged = picked ? themeChoice(picked) : { ...themeChoice(keywordTheme ?? "paper"), ...judged?.theme }
     return { ...merged, ...fixedTheme }
-  }, [markdown, bodyText, parsed, judged, palettePick, fixedTheme])
+  }, [keywordTheme, parsed, judged, palettePick, fixedTheme])
 
   const system = useSystemAppearance()
   const appearance: Appearance = appearancePick ?? (appearanceProp === "auto" ? system : appearanceProp)
@@ -253,8 +281,13 @@ function Document({
   const [sidebarWanted, setSidebarWanted] = useState(true)
   const sidebarId = useId()
   const sidebar = useMemo(
-    () => ({ available: wide && plan.showToc, open: sidebarWanted, toggle: () => setSidebarWanted((open) => !open), id: sidebarId }),
-    [wide, plan.showToc, sidebarWanted, sidebarId],
+    () => ({
+      available: wide && plan.showToc && view !== "source",
+      open: sidebarWanted,
+      toggle: () => setSidebarWanted((open) => !open),
+      id: sidebarId,
+    }),
+    [wide, plan.showToc, view, sidebarWanted, sidebarId],
   )
   const showSidebar = sidebar.available && sidebar.open
 
@@ -296,15 +329,32 @@ function Document({
             <a href={`#${plan.sections[0]?.id ?? "top"}`} className="smd-skip">
               Skip to content
             </a>
-            <Nav plan={plan} root={root} position={position} sidebar={sidebar} onPalette={setPalettePick} onAppearance={setAppearancePick} />
+            <Nav
+              plan={plan}
+              root={root}
+              position={position}
+              sidebar={sidebar}
+              view={view}
+              onView={changeView}
+              onPalette={setPalettePick}
+              onAppearance={setAppearancePick}
+            />
             <div className="smd-body" data-sidebar={showSidebar || undefined}>
               <div className="smd-content">
-                <HeroView plan={plan} />
-                <main>
-                  {plan.sections.map((section) => (
-                    <SectionView key={section.id} section={section} />
-                  ))}
-                </main>
+                {view === "source" ? (
+                  <SourceView value={draft} onChange={editable ? setDraft : undefined} />
+                ) : view === "plain" ? (
+                  <PlainDocument root={parsed.root} toc={plan.toc} />
+                ) : (
+                  <>
+                    <HeroView plan={plan} />
+                    <main>
+                      {plan.sections.map((section) => (
+                        <SectionView key={section.id} section={section} />
+                      ))}
+                    </main>
+                  </>
+                )}
               </div>
               {showSidebar && <TocSidebar plan={plan} active={position.active} id={sidebarId} />}
             </div>
@@ -321,6 +371,22 @@ function Document({
  * menu, and a theme chosen to suit the text.
  */
 export function StunningMarkdown(props: StunningMarkdownProps) {
-  // A new document starts from a clean slate — no stale sizes, judgements or picks.
-  return <Document key={props.markdown} {...props} />
+  const { markdown, onMarkdownChange } = props
+  // A different document starts from a clean slate — no stale sizes, judgements
+  // or picks. The reader's own edit coming back through the `markdown` prop is
+  // the same document, and must not reset anything.
+  const [identity, setIdentity] = useState<{ markdown: string; key: number; echo: string | null }>({ markdown, key: 0, echo: null })
+  let current = identity
+  if (markdown !== identity.markdown) {
+    current = { markdown, key: markdown === identity.echo ? identity.key : identity.key + 1, echo: identity.echo }
+    setIdentity(current)
+  }
+  const handleChange = useCallback(
+    (text: string) => {
+      setIdentity((previous) => ({ ...previous, echo: text }))
+      onMarkdownChange?.(text)
+    },
+    [onMarkdownChange],
+  )
+  return <Document key={current.key} {...props} onMarkdownChange={handleChange} />
 }

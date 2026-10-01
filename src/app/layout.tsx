@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "katex/dist/katex.min.css";
+import "generative-charts/styles.css";
+import "@/stunning-md/stunning.css";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -13,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "stunning-md — markdown in, a designed website out",
+  title: "stunning-md — Markdown in. A beautifully designed website out.",
   description:
     "Open any markdown file and see it rendered as a responsive, themed, navigable page.",
 };

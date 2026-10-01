@@ -143,6 +143,7 @@ The open document and the conversation so far are sent to the chat model with ea
 | `controls` | `boolean` | `true` | Show the view switch and the theme, layout and chart pickers. |
 | `editable` | `boolean` | `false` | Let the reader edit the text in the markdown view. |
 | `onMarkdownChange` | `(markdown: string) => void` | — | Called when the reader's edits are applied. |
+| `chatAccessory` | `ReactNode` | — | A button or link of your own, shown as a round button left of the chat input. |
 | `onClear` | `() => void` | — | Called when the reader clears the page from the chat input. |
 | `loadFonts` | `boolean` | `true` | Load the theme's typefaces from Google Fonts. |
 | `settleMs` | `number` | `2500` | Longest wait for an image to report its size. |

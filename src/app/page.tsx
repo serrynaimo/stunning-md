@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, SparklesIcon, UploadIcon, XIcon } from "lucide-react"
+import { ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, SparklesIcon, UploadIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -174,30 +174,39 @@ export default function Home() {
   if (doc && (site === "unknown" || siteChatState === "unknown")) return null
 
   if (doc) {
+    // One round button stands for the open file: it closes it and goes back to the start.
+    const label = `${doc.name} — close and open another`
     return (
       <>
         <StunningMarkdown
           markdown={doc.markdown}
           classifier={classifier}
           chat={chat}
+          chatAccessory={
+            <button type="button" onClick={close} aria-label={label} title={label}>
+              <FileTextIcon aria-hidden />
+            </button>
+          }
           resolveUrl={resolveUrl}
           editable
           // A cleared page is no longer the file that was opened.
           onClear={() => setDoc((current) => current && { ...current, name: "New page" })}
         />
-        <div
-          className={cn(
-            "fixed z-50 flex items-center gap-1 rounded-full border bg-background/90 py-1 pr-1 pl-3.5 text-sm shadow-lg backdrop-blur",
-            // With chat on, keep clear of the input (bottom centre) and the conversation (right).
-            chat ? cn("bottom-20 sm:bottom-4", DEV ? "left-16" : "left-4") : "right-4 bottom-4",
-          )}
-        >
-          <FileTextIcon className="size-3.5 text-muted-foreground" aria-hidden />
-          <span className="max-w-[40vw] truncate">{doc.name}</span>
-          <Button variant="ghost" size="icon-sm" className="rounded-full" onClick={close} aria-label="Close document and open another">
-            <XIcon />
-          </Button>
-        </div>
+        {/* Without chat there is no input box to sit beside, so the button takes the corner. */}
+        {!chat && (
+          <button
+            type="button"
+            onClick={close}
+            aria-label={label}
+            title={label}
+            className={cn(
+              "fixed bottom-4 z-50 grid size-12 place-items-center rounded-full border bg-background/90 shadow-lg backdrop-blur transition-colors hover:bg-muted",
+              DEV ? "left-16" : "left-4",
+            )}
+          >
+            <FileTextIcon className="size-4" aria-hidden />
+          </button>
+        )}
       </>
     )
   }

@@ -132,6 +132,7 @@ export function ChatDock({
   notes,
   busy,
   canClear,
+  accessory,
   onSend,
   onStop,
   onClear,
@@ -139,6 +140,8 @@ export function ChatDock({
   notes: ChatNote[]
   busy: boolean
   canClear: boolean
+  /** A control of the host's own, shown as a round button to the left of the input box. */
+  accessory?: React.ReactNode
   onSend: (text: string) => void
   onStop: () => void
   onClear: () => void
@@ -160,7 +163,7 @@ export function ChatDock({
   }
 
   return (
-    <div className="smd-chat-dock">
+    <div className="smd-chat-dock" data-accessory={accessory ? "" : undefined}>
       <div className="smd-chat-notes" aria-live="polite">
         {notes.map((note) => (
           <div key={note.id} className="smd-chat-note">
@@ -168,43 +171,46 @@ export function ChatDock({
           </div>
         ))}
       </div>
-      <form
-        className="smd-chat-form"
-        onSubmit={(event) => {
-          event.preventDefault()
-          submit()
-        }}
-      >
-        <Button type="button" variant="ghost" size="icon" onClick={onClear} disabled={!canClear} aria-label="Clear the page" title="Clear the page">
-          <EraserIcon />
-        </Button>
-        {/* The field grows with its text: a hidden copy sets the height. */}
-        <div className="smd-chat-field" data-value={value}>
-          <textarea
-            ref={field}
-            rows={1}
-            value={value}
-            placeholder="Ask for something to add to the page"
-            aria-label="Message"
-            onChange={(event) => setValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                event.preventDefault()
-                submit()
-              }
-            }}
-          />
-        </div>
-        {busy ? (
-          <Button type="button" size="icon" onClick={onStop} aria-label="Stop" title="Stop">
-            <SquareIcon />
+      <div className="smd-chat-row">
+        {accessory && <div className="smd-chat-accessory">{accessory}</div>}
+        <form
+          className="smd-chat-form"
+          onSubmit={(event) => {
+            event.preventDefault()
+            submit()
+          }}
+        >
+          <Button type="button" variant="ghost" size="icon" className="size-9 rounded-full" onClick={onClear} disabled={!canClear} aria-label="Clear the page" title="Clear the page">
+            <EraserIcon />
           </Button>
-        ) : (
-          <Button type="submit" size="icon" disabled={!value.trim()} aria-label="Send" title="Send">
-            <ArrowUpIcon />
-          </Button>
-        )}
-      </form>
+          {/* The field grows with its text: a hidden copy sets the height. */}
+          <div className="smd-chat-field" data-value={value}>
+            <textarea
+              ref={field}
+              rows={1}
+              value={value}
+              placeholder="Ask for something to add to the page"
+              aria-label="Message"
+              onChange={(event) => setValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                  event.preventDefault()
+                  submit()
+                }
+              }}
+            />
+          </div>
+          {busy ? (
+            <Button type="button" size="icon" className="size-9 rounded-full" onClick={onStop} aria-label="Stop" title="Stop">
+              <SquareIcon className="size-3" fill="currentColor" />
+            </Button>
+          ) : (
+            <Button type="submit" size="icon" className="size-9 rounded-full" disabled={!value.trim()} aria-label="Send" title="Send">
+              <ArrowUpIcon />
+            </Button>
+          )}
+        </form>
+      </div>
     </div>
   )
 }

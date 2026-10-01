@@ -49,6 +49,11 @@ export type StunningMarkdownProps = {
    * sections have stopped moving. Default 8000.
    */
   maxWaitMs?: number
+  /**
+   * A control of your own — a single button or link with an icon — shown as a
+   * round button to the left of the chat input.
+   */
+  chatAccessory?: React.ReactNode
   /** Called when the reader clears the page with the button beside the chat input. */
   onClear?: () => void
   className?: string
@@ -99,6 +104,7 @@ const opening = (text: string) => {
 function Page({
   markdown,
   chat,
+  chatAccessory,
   editable = false,
   onMarkdownChange,
   classifier,
@@ -325,6 +331,7 @@ function Page({
                   notes={session.notes}
                   busy={session.busy}
                   canClear={turns.length > 0 || session.items.length > 0}
+                  accessory={chatAccessory}
                   onSend={session.send}
                   onStop={session.stop}
                   onClear={clear}

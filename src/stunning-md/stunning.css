@@ -241,8 +241,57 @@
   padding: 1.5rem var(--smd-gutter) 1rem;
   pointer-events: none;
 }
+.smd-chat-dock {
+  /* The buttons are circles; the box's corners are drawn around the same
+     centre, so a button sits in a corner with an even margin all the way round. */
+  --smd-chat-button: 2.25rem;
+  --smd-chat-inset: 0.375rem;
+  --smd-chat-box: calc(var(--smd-chat-button) + 2 * var(--smd-chat-inset) + 2px);
+}
 .smd-chat-dock > * {
   width: min(100%, 46rem);
+}
+/* The input box, with the host's own button — if it has one — to its left. */
+.smd-chat-dock > .smd-chat-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  width: min(100%, 46rem + var(--smd-chat-box) + 0.5rem);
+}
+/* Remarks line up with the box, not with the button beside it. */
+.smd-chat-dock[data-accessory] > .smd-chat-notes {
+  width: min(100%, 46rem + var(--smd-chat-box) + 0.5rem);
+  padding-left: calc(var(--smd-chat-box) + 0.5rem);
+}
+.smd-chat-row > .smd-chat-form {
+  flex: 1;
+  min-width: 0;
+}
+.smd-chat-accessory {
+  flex: none;
+  pointer-events: auto;
+}
+/* A circle the height of the box, in the same material. */
+.smd-chat-accessory > :where(button, a) {
+  display: grid;
+  place-items: center;
+  width: var(--smd-chat-box);
+  height: var(--smd-chat-box);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--background) 86%, transparent);
+  border: 1px solid var(--border);
+  backdrop-filter: saturate(1.4) blur(18px);
+  -webkit-backdrop-filter: saturate(1.4) blur(18px);
+  box-shadow: 0 10px 34px rgb(0 0 0 / 0.18);
+  color: var(--foreground);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.smd-chat-accessory > :where(button, a):hover {
+  border-color: color-mix(in oklab, var(--primary) 55%, var(--border));
+}
+.smd-chat-accessory svg {
+  width: 1rem;
+  height: 1rem;
 }
 .smd-chat-notes {
   display: flex;
@@ -285,8 +334,8 @@
   display: flex;
   align-items: flex-end;
   gap: 0.25rem;
-  padding: 0.4rem;
-  border-radius: 1.75rem;
+  padding: var(--smd-chat-inset);
+  border-radius: calc(var(--smd-chat-button) / 2 + var(--smd-chat-inset) + 1px);
   background: color-mix(in oklab, var(--background) 86%, transparent);
   border: 1px solid var(--border);
   backdrop-filter: saturate(1.4) blur(18px);
@@ -300,7 +349,14 @@
 }
 .smd-chat-form > button {
   flex: none;
+  width: var(--smd-chat-button);
+  height: var(--smd-chat-button);
+  padding: 0;
   border-radius: 999px;
+}
+.smd-chat-form > button svg {
+  display: block;
+  margin: auto;
 }
 /* The field grows with its text: the hidden copy sets the height, the textarea covers it. */
 .smd-chat-field {
@@ -317,9 +373,10 @@
 .smd-chat-field::after,
 .smd-chat-field textarea {
   grid-area: 1 / 1;
-  padding: 0.35rem 0.5rem;
+  /* One line of text is exactly as tall as a button, so the two share a centre line. */
+  padding: calc((var(--smd-chat-button) - 1.5rem) / 2) 0.5rem;
   font-size: 1rem;
-  line-height: 1.5;
+  line-height: 1.5rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -345,7 +402,7 @@
     display: none;
   }
   .smd-chat-field textarea {
-    height: 2.25rem;
+    height: var(--smd-chat-button);
     white-space: nowrap;
     overflow-x: auto;
     font-size: 16px;

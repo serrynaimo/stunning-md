@@ -1,0 +1,1217 @@
+/*
+ * stunning-md — typography, rhythm and section layouts.
+ *
+ * Everything is scoped to `.smd` and written against shadcn's colour tokens
+ * (--background, --foreground, --primary, …), which the component sets from the
+ * active theme. Fluid sizes use clamp() so one set of rules covers a phone and
+ * a wide desktop without breakpoints for type.
+ */
+
+@layer components {
+
+.smd {
+  --smd-gutter: clamp(1.25rem, 4.5vw, 4.5rem);
+  --smd-max: 86rem;
+  --smd-measure: 66ch;
+  --smd-section-y: clamp(3.5rem, 8vw, 7.5rem);
+  --smd-nav-h: 3rem;
+  --smd-sidebar-w: clamp(15rem, 18vw, 19rem);
+
+  position: relative;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--smd-font-body);
+  font-size: clamp(1rem, 0.94rem + 0.28vw, 1.1875rem);
+  line-height: 1.68;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.35s ease, color 0.35s ease;
+  overflow-wrap: break-word;
+  min-height: 100svh;
+}
+
+.smd-portal {
+  font-family: var(--smd-font-body);
+}
+
+.smd :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.smd-container {
+  width: min(100% - 2 * var(--smd-gutter), var(--smd-max));
+  margin-inline: auto;
+}
+
+.smd-skip {
+  position: absolute;
+  left: var(--smd-gutter);
+  top: -4rem;
+  z-index: 60;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.875rem;
+}
+.smd-skip:focus {
+  top: 0.5rem;
+}
+
+/* --- Navigation ----------------------------------------------------------- */
+
+.smd-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: color-mix(in oklab, var(--background) 82%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  font-size: 0.875rem;
+}
+.smd-nav-title {
+  font-family: var(--smd-font-heading);
+  font-weight: var(--smd-heading-weight);
+  letter-spacing: var(--smd-tracking);
+  font-size: 0.9375rem;
+}
+.smd-progress {
+  position: absolute;
+  inset: auto 0 -1px 0;
+  height: 2px;
+}
+.smd-progress > div {
+  height: 100%;
+  background: var(--primary);
+  transform-origin: left;
+  transform: scaleX(0);
+}
+
+.smd-toc-list {
+  overflow-y: auto;
+  padding: 0 0.75rem 1.5rem;
+  list-style: none;
+  margin: 0;
+}
+
+/* On a wide screen the contents sit beside the document, pinned under the bar. */
+.smd-body[data-sidebar] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--smd-sidebar-w);
+}
+/* The bar's title lines up with the narrowed document; its controls sit above the sidebar. */
+.smd-nav[data-sidebar] > .smd-container {
+  width: auto;
+  margin-inline: 0;
+  padding-left: max(var(--smd-gutter), calc((100% - var(--smd-sidebar-w) - var(--smd-max)) / 2));
+  padding-right: 0.75rem;
+}
+.smd-content {
+  min-width: 0;
+}
+.smd-sidebar {
+  position: sticky;
+  top: var(--smd-nav-h);
+  align-self: start;
+  height: calc(100svh - var(--smd-nav-h));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-left: 1px solid var(--border);
+  padding-top: 1.5rem;
+  background: var(--background);
+}
+.smd-sidebar-title,
+.smd-sidebar-meta {
+  padding-inline: 1.5rem;
+}
+.smd-sidebar-title {
+  font-family: var(--smd-font-heading);
+  font-weight: var(--smd-heading-weight);
+  letter-spacing: var(--smd-tracking);
+  font-size: 1rem;
+}
+.smd-sidebar-meta {
+  margin-top: 0.15rem;
+  margin-bottom: 1rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+.smd-sidebar .smd-toc-list {
+  overflow: visible;
+}
+.smd-sidebar .smd-toc-list a {
+  padding-block: 0.4rem;
+  font-size: 0.875rem;
+}
+.smd-sidebar .smd-toc-list li[data-depth="1"] a {
+  font-size: 0.8125rem;
+}
+.smd-toc-list a {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: calc(var(--radius) * 0.8);
+  font-size: 0.9375rem;
+  line-height: 1.35;
+  color: var(--foreground);
+}
+.smd-toc-list li[data-depth="0"] a {
+  font-family: var(--smd-font-heading);
+  font-weight: 600;
+}
+.smd-toc-list li[data-depth="1"] a {
+  padding-left: 1.5rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+.smd-toc-list a:hover {
+  background: var(--accent);
+}
+.smd-toc-list a[aria-current] {
+  color: var(--primary);
+  background: var(--accent);
+}
+
+/* --- Headings --------------------------------------------------------------- */
+
+.smd-display,
+.smd-h2,
+.smd-subheading,
+.smd-card h3 {
+  font-family: var(--smd-font-heading);
+  font-weight: var(--smd-heading-weight);
+  letter-spacing: var(--smd-tracking);
+  text-wrap: balance;
+  scroll-margin-top: calc(var(--smd-nav-h) + 1.5rem);
+}
+.smd-display {
+  font-size: clamp(2.5rem, 1.4rem + 5.2vw, 6rem);
+  line-height: 1.02;
+}
+.smd-h2 {
+  font-size: clamp(1.75rem, 1.25rem + 2.1vw, 3rem);
+  line-height: 1.1;
+}
+.smd-subheading {
+  font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.625rem);
+  line-height: 1.25;
+  margin-top: 2.5em;
+}
+.smd-subheading[data-depth="2"] {
+  font-size: 1.15em;
+}
+.smd-subheading[data-depth="3"],
+.smd-subheading[data-depth="4"] {
+  font-size: 1em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+}
+
+/* --- Hero --------------------------------------------------------------------- */
+
+.smd-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.smd-hero-inner {
+  padding-block: clamp(4rem, 11vw, 9rem) clamp(3rem, 7vw, 6rem);
+  display: grid;
+  gap: clamp(2rem, 5vw, 4.5rem);
+}
+.smd-hero-text {
+  max-width: 62rem;
+}
+.smd-hero-text > * + * {
+  margin-top: clamp(1rem, 2.2vw, 1.75rem);
+}
+.smd-lead {
+  font-size: clamp(1.125rem, 1rem + 0.9vw, 1.625rem);
+  line-height: 1.45;
+  color: var(--muted-foreground);
+  max-width: 46ch;
+  text-wrap: pretty;
+}
+.smd-lead + .smd-lead {
+  margin-top: 0.75em;
+}
+.smd-eyebrow,
+.smd-hero-meta {
+  font-size: 0.8125rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.smd-eyebrow {
+  color: var(--primary);
+  font-weight: 600;
+}
+.smd-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.smd-badges img {
+  height: 20px;
+  width: auto;
+}
+
+/* A soft wash of the accent keeps a text-only hero from feeling empty. */
+.smd-hero[data-variant="plain"]::before,
+.smd-hero[data-variant="logo"]::before,
+.smd-hero[data-variant="figure"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, var(--primary) 16%, transparent), transparent 70%),
+    radial-gradient(40rem 24rem at 0% 110%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 70%);
+}
+
+.smd-hero[data-variant="logo"] .smd-hero-text {
+  margin-inline: auto;
+  text-align: center;
+}
+.smd-hero[data-variant="logo"] .smd-lead {
+  margin-inline: auto;
+}
+.smd-hero[data-variant="logo"] .smd-badges {
+  justify-content: center;
+}
+.smd-hero-logo {
+  display: block;
+  margin-inline: auto;
+  width: auto;
+  height: auto;
+  max-height: clamp(4.5rem, 12vw, 9rem);
+  max-width: min(100%, 22rem);
+  object-fit: contain;
+}
+
+@media (min-width: 64rem) {
+  .smd-hero[data-variant="figure"] .smd-hero-inner {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    align-items: center;
+  }
+  .smd-hero[data-variant="figure"] .smd-display {
+    font-size: clamp(2.5rem, 1rem + 3.6vw, 4.5rem);
+  }
+}
+
+.smd-hero[data-variant="banner"] {
+  min-height: min(92svh, 58rem);
+  display: flex;
+  align-items: flex-end;
+}
+.smd-hero[data-variant="banner"] .smd-hero-inner {
+  padding-top: clamp(8rem, 24vw, 16rem);
+}
+
+/* Text over a photograph: fixed light-on-dark, whatever the theme. */
+.smd-hero[data-variant="banner"],
+.smd-section[data-layout="fullbleed"] {
+  --foreground: #fff;
+  --muted-foreground: rgb(255 255 255 / 0.82);
+  --primary: #fff;
+  --border: rgb(255 255 255 / 0.3);
+  color: #fff;
+  background: #111;
+}
+.smd-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+}
+.smd-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.78) 0%, rgb(0 0 0 / 0.45) 42%, rgb(0 0 0 / 0.18) 100%);
+}
+
+/* --- Sections ------------------------------------------------------------------- */
+
+.smd-section {
+  position: relative;
+  isolation: isolate;
+  padding-block: var(--smd-section-y);
+  scroll-margin-top: var(--smd-nav-h);
+  outline: none;
+}
+.smd-section + .smd-section[data-tone="plain"]:not([data-layout="fullbleed"]) {
+  border-top: 1px solid var(--border);
+}
+.smd-section[data-tone="tint"] + .smd-section[data-tone="plain"],
+.smd-section[data-tone="invert"] + .smd-section[data-tone="plain"],
+.smd-section[data-layout="fullbleed"] + .smd-section[data-tone="plain"] {
+  border-top: 0;
+}
+.smd-section[data-tone="tint"] {
+  background: var(--smd-soft);
+}
+.smd-section[data-tone="invert"] {
+  --background: var(--smd-fg);
+  --foreground: var(--smd-bg);
+  --muted-foreground: color-mix(in oklab, var(--smd-bg) 72%, var(--smd-fg));
+  --border: color-mix(in oklab, var(--smd-bg) 22%, var(--smd-fg));
+  --primary: color-mix(in oklab, var(--smd-accent) 45%, var(--smd-bg));
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.smd-section-menu {
+  position: absolute;
+  top: 0.75rem;
+  right: max(0.75rem, calc((100% - var(--smd-max)) / 2 - 2.5rem));
+  z-index: 5;
+  color: var(--muted-foreground);
+  opacity: 0.55;
+}
+.smd-section:hover > .smd-section-menu,
+.smd-section-menu:focus-visible,
+.smd-section-menu[aria-expanded="true"] {
+  opacity: 1;
+}
+
+/* The untitled introduction follows on from the hero, but still needs clear air
+   beneath it: heroes carry gradients and photographs that end in a hard edge. */
+.smd-hero + main > .smd-section[data-intro] {
+  padding-top: clamp(2.5rem, 6vw, 5rem);
+}
+
+/* Article: the heading holds the left column while the text scrolls past. */
+.smd-prose-grid {
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 4rem);
+}
+.smd-prose-grid > .smd-flow,
+.smd-prose-solo > .smd-flow {
+  min-width: 0;
+}
+@media (min-width: 64rem) {
+  .smd-prose-grid {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 9fr);
+  }
+  .smd-prose-grid > header {
+    position: sticky;
+    top: calc(var(--smd-nav-h) + 2rem);
+    align-self: start;
+  }
+  .smd-prose-grid > header .smd-h2 {
+    font-size: clamp(1.75rem, 0.9rem + 1.7vw, 2.625rem);
+  }
+}
+.smd-prose-solo {
+  max-width: 54rem;
+}
+
+/* Statement and quotation: few words, a lot of room. */
+.smd-section[data-layout="statement"],
+.smd-section[data-layout="quote"] {
+  padding-block: clamp(5rem, 13vw, 11rem);
+}
+.smd-center {
+  max-width: 60rem;
+  text-align: center;
+}
+.smd-center > .smd-h2 {
+  font-size: clamp(2rem, 1.2rem + 3.6vw, 4.25rem);
+  line-height: 1.05;
+}
+.smd-center > .smd-flow {
+  margin-top: clamp(1.25rem, 3vw, 2.25rem);
+  font-size: clamp(1.125rem, 1rem + 0.8vw, 1.5rem);
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.smd-center > .smd-flow > :where(p, ul, ol, figure) {
+  margin-inline: auto;
+}
+.smd-center .smd-list-feature {
+  text-align: left;
+  color: var(--foreground);
+  max-width: 46rem;
+}
+.smd-center .smd-flow > :where(ul, ol):not(.smd-list-feature) {
+  width: fit-content;
+  text-align: left;
+}
+.smd-section[data-layout="quote"] .smd-h2 {
+  font-family: var(--smd-font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.smd-section[data-layout="quote"] .smd-pull {
+  border: 0;
+  padding: 0;
+  max-width: none;
+}
+.smd-section[data-layout="quote"] .smd-pull blockquote {
+  font-size: clamp(1.625rem, 1rem + 3vw, 3.5rem);
+  line-height: 1.16;
+  color: var(--foreground);
+}
+.smd-section[data-layout="quote"] .smd-pull figcaption {
+  justify-content: center;
+}
+
+/* Side by side. */
+.smd-split {
+  display: grid;
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: center;
+}
+.smd-split-text > .smd-flow {
+  margin-top: clamp(1rem, 2vw, 1.75rem);
+}
+@media (min-width: 56rem) {
+  .smd-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .smd-split[data-flip] .smd-split-media {
+    order: -1;
+  }
+}
+.smd-split-media figcaption,
+.smd-media figcaption {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+/* Full-screen image. */
+.smd-section[data-layout="fullbleed"] {
+  min-height: min(88svh, 56rem);
+  display: flex;
+  align-items: flex-end;
+  padding-block: clamp(3rem, 7vw, 6rem);
+  overflow: hidden;
+}
+.smd-over {
+  padding-top: 30svh;
+}
+.smd-over > .smd-h2 {
+  font-size: clamp(2rem, 1.2rem + 3.4vw, 4rem);
+  max-width: 20ch;
+}
+.smd-over > .smd-flow {
+  margin-top: 1.25rem;
+  max-width: 52ch;
+  font-size: 1.0625em;
+}
+
+/* Cards and showcase: heading on top, wide content below. */
+.smd-stack > .smd-h2 {
+  max-width: 24ch;
+}
+.smd-stack > .smd-flow {
+  margin-top: clamp(1.5rem, 3.5vw, 3rem);
+}
+.smd-cards {
+  display: grid;
+  gap: clamp(1rem, 2vw, 1.5rem);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17.5rem), 1fr));
+}
+.smd-card {
+  position: relative;
+  padding: clamp(1.25rem, 2.4vw, 2rem);
+  border-radius: calc(var(--radius) * 1.6);
+  background: var(--card);
+  border: 1px solid var(--border);
+  scroll-margin-top: calc(var(--smd-nav-h) + 1.5rem);
+  font-size: 0.9375em;
+}
+.smd-card-index {
+  display: block;
+  margin-bottom: 1.25rem;
+  font-family: var(--smd-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--primary);
+}
+.smd-card h3 {
+  font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+  line-height: 1.25;
+}
+.smd-card > .smd-flow {
+  margin-top: 0.75rem;
+  color: var(--muted-foreground);
+}
+.smd-card .smd-media {
+  margin-block: 0;
+}
+
+/* --- Flowing content ---------------------------------------------------------- */
+
+.smd-flow {
+  container: smd-flow / inline-size;
+}
+.smd-flow > * + * {
+  margin-top: 1.25em;
+}
+.smd-flow > :where(p, ul, ol, .smd-subheading, .smd-aside, .smd-callout, .smd-footnote, .smd-list-feature[data-columns="1"]) {
+  max-width: var(--smd-measure);
+}
+.smd-flow > :where(.smd-data, .smd-media, .smd-code, .smd-pull, .smd-cards, .smd-math-block) {
+  margin-block: clamp(1.75rem, 3.5vw, 3rem);
+}
+.smd-flow > :first-child {
+  margin-top: 0;
+}
+.smd-flow > :last-child {
+  margin-bottom: 0;
+}
+.smd-flow p {
+  text-wrap: pretty;
+}
+.smd-flow :where(strong) {
+  font-weight: 650;
+}
+.smd-flow :where(a):not([class]),
+.smd-lead a,
+.smd-facts a,
+.smd-timeline a,
+.smd-table a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
+  transition: text-decoration-color 0.15s;
+}
+.smd-flow :where(a):not([class]):hover,
+.smd-lead a:hover {
+  text-decoration-color: currentColor;
+}
+.smd :where(code):not(.hljs) {
+  font-family: var(--smd-font-mono);
+  font-size: 0.86em;
+  padding: 0.15em 0.4em;
+  border-radius: calc(var(--radius) * 0.5);
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+.smd-inline-image {
+  display: inline-block;
+  max-height: 1.6em;
+  width: auto;
+  vertical-align: middle;
+}
+.smd-image-missing {
+  display: inline-block;
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+.smd-rule {
+  border: 0;
+  height: 1px;
+  background: var(--border);
+  margin-block: 2.5em;
+}
+.smd-item-gap {
+  display: block;
+  height: 0.6em;
+}
+
+/* Long lists read as body copy. */
+.smd-flow :where(ul, ol):not([class]),
+.smd-tasks {
+  padding-left: 1.4em;
+}
+.smd-flow :where(ul):not([class]) {
+  list-style: disc;
+}
+.smd-flow :where(ol):not([class]) {
+  list-style: decimal;
+}
+.smd-flow :where(ul, ol):not([class]) > li + li,
+.smd-tasks > li + li {
+  margin-top: 0.45em;
+}
+.smd-flow :where(ul, ol):not([class]) > li::marker {
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+.smd-flow li > :where(ul, ol) {
+  margin-top: 0.45em;
+}
+.smd-tasks {
+  list-style: none;
+  padding-left: 0;
+}
+.smd-tasks > li {
+  display: grid;
+  grid-template-columns: 1.25rem 1fr;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+.smd-tasks input {
+  appearance: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 1.5px solid color-mix(in oklab, var(--foreground) 35%, transparent);
+  border-radius: 0.3rem;
+  transform: translateY(0.15rem);
+  display: grid;
+  place-content: center;
+}
+.smd-tasks input:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.smd-tasks input:checked::after {
+  content: "";
+  width: 0.55rem;
+  height: 0.3rem;
+  border: solid var(--primary-foreground);
+  border-width: 0 0 2px 2px;
+  transform: rotate(-45deg) translate(0.05rem, -0.05rem);
+}
+.smd-tasks > li[data-checked="true"] {
+  color: var(--muted-foreground);
+}
+
+/* Short lists are a moment of emphasis: bigger type, drawn markers. */
+.smd-list-feature {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  font-size: clamp(1.0625rem, 1rem + 0.45vw, 1.3125rem);
+  line-height: 1.45;
+}
+.smd-list-feature > li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.1rem;
+  align-items: baseline;
+  padding-block: 0.85em;
+  border-top: 1px solid var(--border);
+}
+.smd-list-feature > li:last-child {
+  border-bottom: 1px solid var(--border);
+}
+.smd-list-marker {
+  font-family: var(--smd-font-heading);
+  font-weight: var(--smd-heading-weight);
+  font-size: 0.82em;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.6em;
+}
+ul.smd-list-feature .smd-list-marker {
+  min-width: 0;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 999px;
+  background: var(--primary);
+  transform: translateY(-0.12em);
+}
+/* Two columns only where the list itself has the room — measured on its own
+   container, so a list inside a card or a split column stays in one. */
+@container smd-flow (min-width: 40rem) {
+  .smd-list-feature[data-columns="2"] {
+    grid-template-columns: 1fr 1fr;
+    column-gap: clamp(1.5rem, 4vw, 3.5rem);
+  }
+  .smd-list-feature[data-columns="2"] > li:nth-last-child(2):nth-child(odd) {
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* Inside a card a list is supporting detail, not a headline: body size, tight rows. */
+.smd-card .smd-list-feature {
+  font-size: 1em;
+  line-height: 1.5;
+}
+.smd-card .smd-list-feature > li {
+  gap: 0.7rem;
+  padding-block: 0.55em;
+}
+.smd-card .smd-list-feature > li:last-child {
+  border-bottom: 0;
+}
+.smd-card ul.smd-list-feature .smd-list-marker {
+  width: 0.375em;
+  height: 0.375em;
+}
+
+/* --- Quotations ------------------------------------------------------------------ */
+
+.smd-pull {
+  position: relative;
+  max-width: 48rem;
+  padding-left: clamp(1.25rem, 3vw, 2.25rem);
+  border-left: 3px solid var(--primary);
+}
+.smd-pull blockquote {
+  font-family: var(--smd-font-heading);
+  font-weight: 500;
+  font-size: clamp(1.375rem, 1.05rem + 1.6vw, 2.25rem);
+  line-height: 1.25;
+  letter-spacing: var(--smd-tracking);
+  text-wrap: balance;
+}
+.smd-pull blockquote > p + p {
+  margin-top: 0.6em;
+}
+.smd-pull figcaption,
+.smd-aside figcaption {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+}
+.smd-pull figcaption::before,
+.smd-aside figcaption::before {
+  content: "";
+  width: 1.75rem;
+  height: 1px;
+  background: currentColor;
+}
+.smd-aside {
+  padding: clamp(1.1rem, 2.2vw, 1.6rem) clamp(1.25rem, 2.5vw, 1.9rem);
+  border-radius: calc(var(--radius) * 1.3);
+  background: var(--card);
+  border-left: 3px solid var(--primary);
+}
+.smd-aside blockquote {
+  font-style: italic;
+}
+.smd-aside blockquote > * + *,
+.smd-callout > * + *,
+.smd-flow blockquote > * + * {
+  margin-top: 0.8em;
+}
+.smd-flow blockquote:not(.smd-pull blockquote, .smd-aside blockquote) {
+  padding-left: 1rem;
+  border-left: 2px solid var(--border);
+  color: var(--muted-foreground);
+}
+.smd-callout {
+  padding: 1.1rem 1.35rem;
+  border-radius: calc(var(--radius) * 1.3);
+  border: 1px solid color-mix(in oklab, var(--callout, var(--primary)) 35%, var(--border));
+  background: color-mix(in oklab, var(--callout, var(--primary)) 8%, var(--background));
+  font-size: 0.9375em;
+}
+.smd-callout[data-type="warning"] {
+  --callout: #c98500;
+}
+.smd-callout[data-type="caution"] {
+  --callout: #d03b3b;
+}
+.smd-callout[data-type="tip"] {
+  --callout: #199e70;
+}
+.smd-callout-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.smd-callout-label svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--callout, var(--primary));
+}
+
+/* --- Media ---------------------------------------------------------------------- */
+
+.smd-frame {
+  border-radius: calc(var(--radius) * 1.6);
+  background: var(--card);
+}
+img.smd-frame {
+  display: block;
+}
+
+/* --- Code and maths ------------------------------------------------------------- */
+
+.smd-code {
+  border-radius: calc(var(--radius) * 1.3);
+  border: 1px solid var(--border);
+  background: var(--card);
+  overflow: hidden;
+  max-width: 100%;
+}
+.smd-code figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.4rem 0.25rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--smd-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+}
+.smd-code pre {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  font-family: var(--smd-font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  tab-size: 2;
+}
+.smd-code code.hljs {
+  font-family: inherit;
+  background: none;
+  padding: 0;
+}
+.smd .hljs-comment,
+.smd .hljs-quote,
+.smd .hljs-meta {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.smd .hljs-keyword,
+.smd .hljs-selector-tag,
+.smd .hljs-literal,
+.smd .hljs-built_in,
+.smd .hljs-doctag {
+  color: var(--primary);
+  font-weight: 600;
+}
+.smd .hljs-string,
+.smd .hljs-regexp,
+.smd .hljs-addition,
+.smd .hljs-attribute {
+  color: color-mix(in oklab, #1a9d6c 72%, var(--foreground));
+}
+.smd .hljs-number,
+.smd .hljs-symbol,
+.smd .hljs-bullet,
+.smd .hljs-variable,
+.smd .hljs-template-variable {
+  color: color-mix(in oklab, #d9661f 75%, var(--foreground));
+}
+.smd .hljs-title,
+.smd .hljs-section,
+.smd .hljs-name,
+.smd .hljs-type,
+.smd .hljs-attr {
+  color: color-mix(in oklab, #3a7bd5 72%, var(--foreground));
+}
+.smd .hljs-deletion {
+  color: #d03b3b;
+}
+.smd-math-block {
+  overflow-x: auto;
+  padding-block: 0.5rem;
+  text-align: center;
+}
+
+/* --- Data ------------------------------------------------------------------------ */
+
+.smd-data {
+  position: relative;
+  min-width: 0;
+}
+.smd-data-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.125rem;
+  margin-bottom: 0.25rem;
+}
+/* The soft chart family paints a glass highlight behind the plot; on a themed page it reads as a smudge. */
+.smd-chart .ck-chart::after {
+  display: none;
+}
+/* The plot's corner caption names the first series only — wrong once there are several. */
+.smd-chart[data-multi] .ck-axis-title {
+  display: none;
+}
+.smd-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.3);
+}
+.smd-table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+.smd-table-scroll :where(th, td) {
+  padding: 0.7rem 1rem;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+.smd-table-scroll tr:last-child td {
+  border-bottom: 0;
+}
+.smd-table-scroll th {
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  background: var(--card);
+  white-space: nowrap;
+  height: auto;
+}
+
+.smd-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.6);
+  overflow: hidden;
+}
+.smd-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: clamp(1.25rem, 2.6vw, 2.25rem);
+  background: var(--background);
+}
+.smd-stats dd {
+  font-family: var(--smd-font-heading);
+  font-weight: var(--smd-heading-weight);
+  font-size: clamp(1.75rem, 1.2rem + 1.7vw, 2.75rem);
+  line-height: 1;
+  letter-spacing: var(--smd-tracking);
+  white-space: nowrap;
+}
+.smd-stats dt {
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: var(--muted-foreground);
+}
+
+.smd-timeline {
+  list-style: none;
+  padding: 0;
+  position: relative;
+}
+.smd-timeline::before {
+  content: "";
+  position: absolute;
+  top: 0.6rem;
+  bottom: 0.6rem;
+  left: 0.3125rem;
+  width: 1px;
+  background: var(--border);
+}
+.smd-timeline > li {
+  position: relative;
+  padding-left: 2rem;
+  padding-bottom: clamp(1.5rem, 3vw, 2.5rem);
+}
+.smd-timeline > li:last-child {
+  padding-bottom: 0;
+}
+.smd-timeline > li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.45rem;
+  width: 0.6875rem;
+  height: 0.6875rem;
+  border-radius: 999px;
+  background: var(--background);
+  border: 2px solid var(--primary);
+}
+.smd-timeline time {
+  display: block;
+  font-family: var(--smd-font-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+}
+.smd-timeline-title {
+  font-family: var(--smd-font-heading);
+  font-weight: 600;
+  font-size: 1.125em;
+  line-height: 1.3;
+  margin-top: 0.2rem;
+}
+.smd-timeline-title + p {
+  margin-top: 0.3rem;
+}
+.smd-timeline p:not(.smd-timeline-title) {
+  color: var(--muted-foreground);
+  font-size: 0.9375em;
+}
+.smd-timeline-key {
+  font-weight: 600;
+}
+@media (min-width: 48rem) {
+  .smd-timeline::before {
+    left: calc(11rem + 0.3125rem);
+  }
+  .smd-timeline > li {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    column-gap: 4rem;
+    padding-left: 0;
+  }
+  .smd-timeline > li::before {
+    left: 11rem;
+  }
+  .smd-timeline time {
+    text-align: right;
+    padding-top: 0.3rem;
+  }
+}
+
+.smd-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  column-gap: clamp(1.5rem, 4vw, 3.5rem);
+}
+.smd-facts > div {
+  display: grid;
+  grid-template-columns: minmax(6rem, 2fr) 3fr;
+  gap: 1rem;
+  padding-block: 0.8rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.9375em;
+}
+.smd-facts dt {
+  color: var(--muted-foreground);
+}
+.smd-facts dd {
+  font-weight: 550;
+}
+
+.smd-footnote {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  font-size: 0.8125em;
+  color: var(--muted-foreground);
+}
+
+/* --- Loading -----------------------------------------------------------------------
+ * The document is laid out underneath the loader (hidden, inert) so that late
+ * decisions settle out of sight; the loader lifts once the top has stopped moving. */
+
+.smd[data-ready="false"] > .smd-document {
+  visibility: hidden;
+}
+.smd-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: var(--background);
+  transition: background-color 0.35s ease;
+}
+.smd-loader > div {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+}
+.smd-loader p {
+  font-size: 0.8125rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.smd-loader-mark {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 2px solid color-mix(in oklab, var(--foreground) 14%, transparent);
+  border-top-color: var(--primary);
+  transition: border-color 0.35s ease;
+  animation: smd-spin 0.9s linear infinite;
+}
+@keyframes smd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes smd-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes smd-reveal {
+  from {
+    opacity: 0;
+  }
+}
+.smd[data-ready="true"] > .smd-document {
+  animation: smd-reveal 0.45s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .smd-loader-mark {
+    animation: smd-pulse 1.6s ease-in-out infinite;
+  }
+  .smd[data-ready="true"] > .smd-document {
+    animation: none;
+  }
+}
+
+/* --- Motion ------------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .smd-section > .smd-container,
+    .smd-hero-figure {
+      animation: smd-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 38%;
+    }
+  }
+  .smd[data-ready="true"] .smd-hero-text > * {
+    animation: smd-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .smd[data-ready="true"] .smd-hero-text > :nth-child(2) {
+    animation-delay: 0.07s;
+  }
+  .smd[data-ready="true"] .smd-hero-text > :nth-child(3) {
+    animation-delay: 0.14s;
+  }
+  .smd[data-ready="true"] .smd-hero-text > :nth-child(n + 4) {
+    animation-delay: 0.2s;
+  }
+}
+@keyframes smd-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+}
+
+@media print {
+  .smd-sidebar,
+  .smd-nav,
+  .smd-section-menu,
+  .smd-data-tools {
+    display: none;
+  }
+  .smd-section {
+    break-inside: avoid;
+  }
+}
+}

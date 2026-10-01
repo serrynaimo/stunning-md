@@ -1,0 +1,237 @@
+"use client"
+
+import { CheckIcon, MenuIcon, MoonIcon, PaletteIcon, PanelRightCloseIcon, PanelRightOpenIcon, SunIcon } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
+import { themeList } from "../theme/themes"
+import type { Appearance, DocumentPlan, PaletteId, TocEntry } from "../types"
+import { useStunning } from "./context"
+
+function scrollToId(id: string) {
+  const target = document.getElementById(id)
+  if (!target) return
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" })
+  // Move focus with the viewport so keyboard and screen-reader users land there too.
+  target.setAttribute("tabindex", "-1")
+  target.focus({ preventScroll: true })
+  history.replaceState(null, "", `#${id}`)
+}
+
+/** Tracks which section is being read and how far through the document the reader is. */
+export function useReadingPosition(ids: string[], root: React.RefObject<HTMLElement | null>) {
+  const [active, setActive] = useState<string | null>(null)
+  const bar = useRef<HTMLDivElement>(null)
+  const key = ids.join("|")
+
+  useEffect(() => {
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const el = root.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const span = rect.height - window.innerHeight
+      const progress = span > 0 ? Math.min(1, Math.max(0, -rect.top / span)) : 0
+      if (bar.current) bar.current.style.transform = `scaleX(${progress})`
+      let current: string | null = null
+      for (const id of key.split("|")) {
+        const node = id && document.getElementById(id)
+        if (node && node.getBoundingClientRect().top <= window.innerHeight * 0.3) current = id
+      }
+      setActive(current)
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update)
+    }
+    update()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    window.addEventListener("resize", onScroll)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener("scroll", onScroll)
+      window.removeEventListener("resize", onScroll)
+    }
+  }, [key, root])
+
+  return { active, bar }
+}
+
+export type ReadingPosition = ReturnType<typeof useReadingPosition>
+
+/** How the contents are offered: beside the page when there is room, otherwise in a sheet. */
+export type SidebarState = { available: boolean; open: boolean; toggle: () => void; id: string }
+
+function TocList({ entries, active, onNavigate }: { entries: TocEntry[]; active: string | null; onNavigate: (id: string) => void }) {
+  return (
+    <ol className="smd-toc-list">
+      {entries.map((entry) => (
+        <li key={entry.id} data-depth={entry.depth}>
+          <a
+            href={`#${entry.id}`}
+            aria-current={entry.id === active ? "location" : undefined}
+            onClick={(event) => {
+              event.preventDefault()
+              onNavigate(entry.id)
+            }}
+          >
+            {entry.text}
+          </a>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+/** The contents, pinned beside the document on wide screens. */
+export function TocSidebar({ plan, active, id }: { plan: DocumentPlan; active: string | null; id: string }) {
+  const scroller = useRef<HTMLElement>(null)
+
+  // Keep the current entry in view as the reader moves through a long document.
+  useEffect(() => {
+    const box = scroller.current
+    const current = box?.querySelector<HTMLElement>("[aria-current]")
+    if (!box || !current) return
+    const top = current.offsetTop - box.offsetTop
+    if (top < box.scrollTop + 48) box.scrollTop = Math.max(0, top - 48)
+    else if (top + current.offsetHeight > box.scrollTop + box.clientHeight - 48) box.scrollTop = top + current.offsetHeight - box.clientHeight + 48
+  }, [active])
+
+  return (
+    <nav ref={scroller} id={id} className="smd-sidebar" aria-label="Contents">
+      <p className="smd-sidebar-title">Contents</p>
+      <p className="smd-sidebar-meta">
+        {plan.readingTime} min read · {plan.sections.filter((s) => s.titleText).length} sections
+      </p>
+      <TocList entries={plan.toc} active={active} onNavigate={scrollToId} />
+    </nav>
+  )
+}
+
+export function Nav({
+  plan,
+  root,
+  position,
+  sidebar,
+  onPalette,
+  onAppearance,
+}: {
+  plan: DocumentPlan
+  root: React.RefObject<HTMLElement | null>
+  position: ReadingPosition
+  sidebar: SidebarState
+  onPalette: (palette: PaletteId) => void
+  onAppearance: (appearance: Appearance) => void
+}) {
+  const { portal, theme, appearance, controls } = useStunning()
+  const [open, setOpen] = useState(false)
+  const { active, bar } = position
+  const activeTop = plan.toc.find((entry) => entry.id === active)
+  const current = activeTop ? (plan.toc.slice(0, plan.toc.indexOf(activeTop) + 1).findLast((e) => e.depth === 0) ?? activeTop) : null
+
+  if (!plan.showToc && !controls) return null
+
+  return (
+    <nav className="smd-nav" aria-label="Document" data-sidebar={(plan.showToc && sidebar.available && sidebar.open) || undefined}>
+      <div className="smd-container flex h-12 items-center gap-2">
+        {plan.hero.titleText && (
+          <a
+            href="#top"
+            onClick={(event) => {
+              event.preventDefault()
+              window.scrollTo({ top: (root.current?.getBoundingClientRect().top ?? 0) + window.scrollY, behavior: "smooth" })
+            }}
+            className="smd-nav-title min-w-0 truncate"
+          >
+            {plan.hero.titleText}
+          </a>
+        )}
+        {current && (
+          <span className={cn("min-w-0 truncate text-sm text-muted-foreground", plan.hero.titleText && "hidden sm:inline")} aria-hidden>
+            {plan.hero.titleText && <span className="mx-1.5 opacity-50">/</span>}
+            {current.text}
+          </span>
+        )}
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          {controls && (
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Choose theme" title="Theme" />}>
+                <PaletteIcon />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" style={portal.style} className={cn(portal.className, "w-52")}>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Theme</DropdownMenuLabel>
+                  {themeList.map((item) => (
+                    <DropdownMenuItem key={item.id} onClick={() => onPalette(item.id)}>
+                      <span
+                        aria-hidden
+                        className="size-4 shrink-0 rounded-full ring-1 ring-foreground/15"
+                        style={{ background: `linear-gradient(135deg, ${item[appearance].bg} 50%, ${item[appearance].accent} 50%)` }}
+                      />
+                      {item.name}
+                      {item.id === theme.palette && <CheckIcon className="ml-auto" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onAppearance(appearance === "dark" ? "light" : "dark")}
+            aria-label={appearance === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={appearance === "dark" ? "Light mode" : "Dark mode"}
+          >
+            {appearance === "dark" ? <SunIcon /> : <MoonIcon />}
+          </Button>
+          {plan.showToc && sidebar.available && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 px-2.5"
+              onClick={sidebar.toggle}
+              aria-expanded={sidebar.open}
+              aria-controls={sidebar.id}
+              aria-label={sidebar.open ? "Hide table of contents" : "Show table of contents"}
+            >
+              {sidebar.open ? <PanelRightCloseIcon /> : <PanelRightOpenIcon />}
+              <span>Contents</span>
+            </Button>
+          )}
+          {plan.showToc && !sidebar.available && (
+            <Sheet open={open} onOpenChange={setOpen}>
+              <SheetTrigger render={<Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5" aria-label="Open table of contents" />}>
+                <MenuIcon />
+                <span className="hidden sm:inline">Contents</span>
+              </SheetTrigger>
+              <SheetContent style={portal.style} className={cn(portal.className, "smd-toc gap-0")}>
+                <SheetHeader>
+                  <SheetTitle>Contents</SheetTitle>
+                  <SheetDescription>
+                    {plan.readingTime} min read · {plan.sections.filter((s) => s.titleText).length} sections
+                  </SheetDescription>
+                </SheetHeader>
+                <TocList
+                  entries={plan.toc}
+                  active={active}
+                  onNavigate={(id) => {
+                    setOpen(false)
+                    // Wait for the sheet to release its scroll lock.
+                    setTimeout(() => scrollToId(id), 60)
+                  }}
+                />
+              </SheetContent>
+            </Sheet>
+          )}
+        </div>
+      </div>
+      <div className="smd-progress" aria-hidden>
+        <div ref={bar} />
+      </div>
+    </nav>
+  )
+}

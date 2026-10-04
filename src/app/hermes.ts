@@ -23,6 +23,7 @@ import type { Chat, ChatMessage } from "@/stunning-md"
  * Its image_search tool answers in a second or two; left to itself it either shows none or searches for minutes.
  */
 export const HERMES_INSTRUCTIONS = [
+  "Do the work yourself in this turn: no kanban task and no delegation, because a result delivered later never reaches this page.",
   "When the request is about public information and its subject can be seen — a place, person, product, building, artwork, animal, dish — show pictures: before writing, call image_search once with every subject.",
   "Never search pictures for private or personal matters.",
   "A landscape result at least 1200 wide, alone on the first line before the title, becomes the banner; put each other one on its own line under the `##` heading it belongs to.",

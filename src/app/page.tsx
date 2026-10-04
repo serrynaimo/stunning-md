@@ -4,7 +4,8 @@ import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, Fo
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { chatCompletionsUrl, createChat, createClassifier, StunningMarkdown } from "@/stunning-md"
+import { chatCompletionsUrl, createChat, createClassifier, sortReply, StunningMarkdown } from "@/stunning-md"
+import { createRunChat, forgetRun, settled, storedRun, type StoredRun } from "./hermes"
 import { OwnChatForm, useOwnChat } from "./own-chat"
 import { OwnClassifierForm, useOwnClassifier } from "./own-classifier"
 
@@ -76,8 +77,20 @@ function useTyped(text: string, enabled: boolean): { text: string; streaming: bo
 
 /** This site's own classifier, reached through a server route that holds the key. */
 const siteClassifier = createClassifier({ endpoint: `${BASE}/api/classify` })
+/**
+ * `NEXT_PUBLIC_CHAT_RUNS=1`: the host runs Hermes Agent, and a request is a run that
+ * carries on while the page is away (see hermes.ts) rather than one long reply.
+ */
+const RUNS = process.env.NEXT_PUBLIC_CHAT_RUNS === "1"
 /** This site's own chat model, reached the same way. */
-const siteChat = createChat({ endpoint: `${BASE}/api/chat` })
+const siteChat = RUNS ? createRunChat() : createChat({ endpoint: `${BASE}/api/chat` })
+/** The run the last page did not live to see the end of — read once, when the page is in the browser. */
+let leftBehind: StoredRun | null | undefined
+const runLeftBehind = () => (leftBehind === undefined ? (leftBehind = RUNS ? storedRun() : null) : leftBehind)
+const none = () => null
+async function* once(text: string) {
+  yield text
+}
 /** `?open` in the address: read once the page is in the browser, since the prerendered page cannot know it. */
 const askedForLanding = () => new URLSearchParams(window.location.search).has("open")
 const unchanging = () => () => {}
@@ -137,10 +150,35 @@ export default function Home() {
   // unless the address asks for this page, or there is no chat model to write on it.
   const landing = useSyncExternalStore(unchanging, askedForLanding, () => false)
   const blankStart = START_BLANK && siteChatState === "configured" && !landing
-  const shown = doc ?? (blankStart ? BLANK : null)
+  // A request the last page did not live to see answered — the phone slept, the page was
+  // thrown away — is waited for here, and its answer opens as the document.
+  const stored = useSyncExternalStore(unchanging, runLeftBehind, none)
+  // Its answer once it has one; and whether it is out of the picture — put aside by the reader, or ended with nothing to show.
+  const [recovered, setRecovered] = useState<string | null>(null)
+  const [dropped, setDropped] = useState(false)
+  const left = stored && !dropped ? stored : null
+  useEffect(() => {
+    if (!left || recovered !== null) return
+    const waiting = new AbortController()
+    settled(left.id, waiting.signal)
+      .then(async (run) => {
+        // Only the answer goes on the page; the model's remarks about it belonged to the conversation.
+        const reply = run.status === "completed" ? (run.output ?? "") : ""
+        const content = reply ? (await sortReply({ stream: once(reply), request: left.request, classify: classifier, signal: waiting.signal, onEvent: () => {} })).content : ""
+        if (waiting.signal.aborted) return
+        forgetRun(left.id)
+        if (content.trim()) setRecovered(content)
+        else setDropped(true)
+      })
+      .catch(() => {})
+    return () => waiting.abort()
+  }, [left, recovered, classifier])
+  const restored = useMemo<Loaded | null>(() => (left ? { name: left.request.slice(0, 60) || "New page", markdown: recovered ?? "", assets: new Map() } : null), [left, recovered])
+  const shown = doc ?? restored ?? (blankStart ? BLANK : null)
   // Starting over is a new page in every sense: nothing of the last conversation comes along.
   const [page, setPage] = useState(0)
   const typed = useTyped(shown?.markdown ?? "", !!shown?.typed)
+  const awaited = !doc && !!restored && recovered === null
   const fileInput = useRef<HTMLInputElement>(null)
   const folderInput = useRef<HTMLInputElement>(null)
 
@@ -204,6 +242,10 @@ export default function Home() {
   const close = () => {
     doc?.assets.forEach((url) => URL.revokeObjectURL(url))
     setDoc(null)
+    if (left) {
+      forgetRun(left.id)
+      setDropped(true)
+    }
     setPage((count) => count + 1)
     window.scrollTo({ top: 0 })
   }
@@ -231,7 +273,7 @@ export default function Home() {
         <StunningMarkdown
           key={page}
           markdown={typed.text}
-          streaming={typed.streaming}
+          streaming={typed.streaming || awaited}
           classifier={classifier}
           chat={chat}
           chatAccessory={

@@ -1,5 +1,6 @@
 "use client"
 
+import { cn } from "@/lib/utils"
 import katex from "katex"
 import type { PhrasingContent, RootContent } from "mdast"
 import { Fragment, type ReactNode } from "react"
@@ -9,6 +10,20 @@ import { useStunning } from "./context"
 const SAFE_URL = /^(https?:|mailto:|tel:|#|\/|\.{0,2}\/|blob:|data:image\/)/i
 
 /** Links and images only ever point at ordinary web, mail or in-page targets. */
+/** An image written with the address of a film or a recording is one to play. */
+export function playable(src: string): "video" | "audio" | null {
+  const path = src.split(/[?#]/)[0]
+  return /\.(mp4|webm|mov|m4v)$/i.test(path) ? "video" : /\.(mp3|wav|ogg|m4a|opus|flac)$/i.test(path) ? "audio" : null
+}
+
+export function Player({ src, kind, label, className }: { src: string; kind: "video" | "audio"; label?: string; className?: string }) {
+  return kind === "video" ? (
+    <video src={src} controls playsInline preload="metadata" aria-label={label || undefined} className={cn("smd-frame h-auto max-h-[80svh] w-full", className)} />
+  ) : (
+    <audio src={src} controls preload="metadata" aria-label={label || undefined} className={cn("w-full", className)} />
+  )
+}
+
 export function safeUrl(url: string): string | undefined {
   const trimmed = url.trim()
   if (SAFE_URL.test(trimmed) || !/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed
@@ -51,6 +66,8 @@ export function Inline({ nodes }: { nodes: PhrasingContent[] }) {
       }
       case "image": {
         const src = safeUrl(resolveUrl(node.url))
+        const kind = src ? playable(src) : null
+        if (src && kind) return <Player key={key} src={src} kind={kind} label={node.alt ?? undefined} />
         // eslint-disable-next-line @next/next/no-img-element
         return src ? <img key={key} src={src} alt={node.alt ?? ""} title={node.title ?? undefined} loading="lazy" className="smd-inline-image" /> : null
       }

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import type { ImageRef, MediaVariant } from "../types"
 import { useStunning } from "./context"
-import { safeUrl } from "./flow"
+import { playable, Player, safeUrl } from "./flow"
 
 /** Alt text doubles as a caption only when it reads like one. */
 export function captionOf(image: ImageRef): string | undefined {
@@ -32,6 +32,8 @@ export function Picture({
   if (!src || broken) {
     return image.alt ? <span className={cn("smd-image-missing", className)}>{image.alt}</span> : null
   }
+  const kind = playable(src)
+  if (kind) return <Player src={src} kind={kind} label={image.alt} />
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -161,6 +163,15 @@ export function Media({ images, variant }: { images: ImageRef[]; variant: MediaV
           </figure>
         ))}
       </div>
+    )
+  } else if (playable(images[0].src)) {
+    // Played where it stands: nothing to enlarge, so no button around it.
+    const image = images[0]
+    body = (
+      <figure className="smd-media">
+        <Picture image={image} />
+        {captionOf(image) && <figcaption>{captionOf(image)}</figcaption>}
+      </figure>
     )
   } else {
     const image = images[0]

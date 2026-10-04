@@ -189,16 +189,16 @@ export function remainder(said: string, whole: string): string {
 /**
  * What the agent generates — a picture, a video, speech — it names as `MEDIA:<file on its machine>`,
  * which a messenger turns into an attachment. Here the host copies such a file into the site's
- * `media` folder under its own name, so the tag becomes a picture, or a link to play.
+ * `media` folder under its own name, so the tag becomes a picture or a player.
  */
 const MEDIA_TAG = /[`"'*_]{0,3}MEDIA:\s*[`"']?(?:[A-Za-z]:[\\/]|~?\/)[^\n`"']*?([^\\/\n`"']+\.(png|jpe?g|webp|gif|mp4|webm|mov|mp3|wav|ogg|m4a|opus))[`"']?[`"'*_]{0,3}/gi
 const MEDIA = `${BASE}/media`
 
 export function withMedia(text: string): string {
-  return text.replace(MEDIA_TAG, (_tag, name: string, kind: string) => {
+  return text.replace(MEDIA_TAG, (_tag, name: string) => {
     const address = `${MEDIA}/${encodeURIComponent(name)}`
-    if (/^(png|jpe?g|webp|gif)$/i.test(kind)) return `\n\n![](${address})\n\n`
-    return `[${/^(mp4|webm|mov)$/i.test(kind) ? "Play the video" : "Play the audio"}](${address})`
+    // Written as an image whatever it is: the page plays a film or a recording where a picture would stand.
+    return `\n\n![](${address})\n\n`
   })
 }
 

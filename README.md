@@ -223,7 +223,7 @@ plan.sections.map((s) => [s.titleText, s.layout, s.reason])
 | Content | Becomes |
 | --- | --- |
 | Leading `# Title`, short opening paragraphs | Hero with title and lead — on the page, or as a cover in the theme's colour |
-| Leading image, ≥ 1200 px wide and landscape | Full-bleed banner behind the title |
+| Leading image, ≥ 1200 px wide and landscape, or ≥ 1600 × 900 px in any shape | Full-bleed banner behind the title |
 | Leading image that is small, square or an SVG | Logo above a centred title |
 | Badge images (shields.io and similar) | A badge row in the hero |
 | Section with very few words | "Statement": large, centred, extra room |

@@ -272,6 +272,20 @@ describe("unusual documents", () => {
     expect(doc.hero.lead).toHaveLength(1)
   })
 
+  it("makes a banner of any image large enough to fill a screen, whatever its shape", () => {
+    const variant = (width: number, height: number, src = "harbour.jpg") => plan(`# Title\n\n![Harbour at dawn](${src})\n\nText.`, { [src]: { width, height } }).hero.variant
+    expect(variant(2000, 2000)).toBe("banner")
+    expect(variant(1600, 900)).toBe("banner")
+    expect(variant(1800, 2400)).toBe("banner")
+    expect(variant(1600, 1200)).toBe("banner")
+    // Too narrow, or too short, without the shape of a banner either.
+    expect(variant(1599, 1200)).toBe("figure")
+    expect(variant(1100, 899)).toBe("figure")
+    // A drawing has no size of its own, and a logo is still a logo.
+    expect(variant(2000, 2000, "diagram.svg")).toBe("logo")
+    expect(variant(2000, 2000, "logo.png")).toBe("logo")
+  })
+
   it("treats repeated H1s as sections after the first", () => {
     const doc = plan("# Title\n\nIntro.\n\n# One\n\nText.\n\n# Two\n\nText.")
     expect(doc.hero.titleText).toBe("Title")

@@ -60,6 +60,8 @@ function classifyHeroImage(image: ImageRef): Hero["variant"] | null {
   const vector = /\.svg$/i.test(image.src.split(/[?#]/)[0])
   if (LOGO_NAME.test(name) && !(meta.width >= 1600 && aspect >= 1.8)) return "logo"
   if (meta.width >= 1200 && aspect >= 1.5 && !vector) return "banner"
+  // Large enough to fill a screen whatever its shape: the banner crops it to fit.
+  if (meta.width >= 1600 && meta.height >= 900 && !vector) return "banner"
   if (BANNER_NAME.test(name) && meta.width >= 900 && aspect >= 1.5) return "banner"
   if (vector || Math.max(meta.width, meta.height) <= 640) return "logo"
   return "figure"

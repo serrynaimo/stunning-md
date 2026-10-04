@@ -12,6 +12,7 @@ No prop or export was removed or renamed.
 
 ### Changed
 
+- A leading image of at least 1600 × 900 px becomes the banner behind the title whatever its shape: it no longer has to be landscape. Smaller images still do (1200 px wide, three by two or wider), and a logo or an SVG is still a logo.
 - `CHAT_INSTRUCTIONS` asks for more of what the page can lay out: any answer that informs gets a title and sections, tables are preferred for figures and comparisons, `###` blurbs — which become cards — over label-and-dash paragraphs and long bullet lists, and pictures are added only from image URLs the model has looked up.
 
 ### Fixed

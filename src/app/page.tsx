@@ -1,7 +1,7 @@
 "use client"
 
-import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, SparklesIcon, UploadIcon, XIcon } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, FolderOpenIcon, SparklesIcon, SquarePenIcon, UploadIcon, XIcon } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { chatCompletionsUrl, createChat, createClassifier, StunningMarkdown } from "@/stunning-md"
@@ -30,8 +30,17 @@ const MARKDOWN = /\.(md|markdown|mdx|txt)$/i
 
 /** Sub-path the site is served from, e.g. "/stunning-md" on GitHub Pages. */
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
-/** A static export has no server, so no classifier of its own — only one the reader adds. */
-const STATIC = process.env.NEXT_PUBLIC_STATIC_EXPORT === "1"
+/**
+ * A static export has no server, so no classifier of its own — only one the reader adds.
+ * Unless the host it is copied to answers `/api/classify` and `/api/chat` itself
+ * (`NEXT_PUBLIC_SITE_API=1`): then those are asked, as on the server build.
+ */
+const STATIC = process.env.NEXT_PUBLIC_STATIC_EXPORT === "1" && process.env.NEXT_PUBLIC_SITE_API !== "1"
+/**
+ * `NEXT_PUBLIC_START=blank` opens on a blank page to chat into, when the site has a
+ * chat model, where this page would otherwise be. `?open` in the address still asks for this page.
+ */
+const START_BLANK = process.env.NEXT_PUBLIC_START === "blank"
 
 type Loaded = {
   name: string
@@ -69,6 +78,11 @@ function useTyped(text: string, enabled: boolean): { text: string; streaming: bo
 const siteClassifier = createClassifier({ endpoint: `${BASE}/api/classify` })
 /** This site's own chat model, reached the same way. */
 const siteChat = createChat({ endpoint: `${BASE}/api/chat` })
+/** `?open` in the address: read once the page is in the browser, since the prerendered page cannot know it. */
+const askedForLanding = () => new URLSearchParams(window.location.search).has("open")
+const unchanging = () => () => {}
+/** A page with nothing on it yet, to chat into. */
+const BLANK: Loaded = { name: "New page", markdown: "", assets: new Map() }
 
 const normalise = (path: string) => decodeURIComponent(path).replace(/^\.?\//, "").split(/[?#]/)[0]
 
@@ -119,7 +133,14 @@ export default function Home() {
     [ownChat],
   )
   const chat = siteChatState === "configured" ? siteChat : ownChatFn
-  const typed = useTyped(doc?.markdown ?? "", !!doc?.typed)
+  // A site set to open on the blank page shows that whenever nothing else is open —
+  // unless the address asks for this page, or there is no chat model to write on it.
+  const landing = useSyncExternalStore(unchanging, askedForLanding, () => false)
+  const blankStart = START_BLANK && siteChatState === "configured" && !landing
+  const shown = doc ?? (blankStart ? BLANK : null)
+  // Starting over is a new page in every sense: nothing of the last conversation comes along.
+  const [page, setPage] = useState(0)
+  const typed = useTyped(shown?.markdown ?? "", !!shown?.typed)
   const fileInput = useRef<HTMLInputElement>(null)
   const folderInput = useRef<HTMLInputElement>(null)
 
@@ -179,48 +200,54 @@ export default function Home() {
     }
   }, [])
 
+  // Closing what is open goes back to the start: this page, or a new blank page where the site opens on one.
   const close = () => {
     doc?.assets.forEach((url) => URL.revokeObjectURL(url))
     setDoc(null)
+    setPage((count) => count + 1)
     window.scrollTo({ top: 0 })
   }
 
   const resolveUrl = useCallback(
     (url: string) => {
-      if (!doc || /^([a-z][a-z0-9+.-]*:|\/\/|#)/i.test(url)) return url
+      if (!shown || /^([a-z][a-z0-9+.-]*:|\/\/|#)/i.test(url)) return url
       const path = normalise(url)
-      const asset = doc.assets.get(path) ?? doc.assets.get(path.split("/").pop() ?? "")
+      const asset = shown.assets.get(path) ?? shown.assets.get(path.split("/").pop() ?? "")
       if (asset) return asset
-      return doc.base ? `${doc.base}${path}` : url
+      return shown.base ? `${shown.base}${path}` : url
     },
-    [doc],
+    [shown],
   )
 
-  if (doc && (site === "unknown" || siteChatState === "unknown")) return null
+  if (shown && (site === "unknown" || siteChatState === "unknown")) return null
+  // A site that opens on the blank page shows nothing until it knows whether it has a chat model to open it with.
+  if (START_BLANK && !landing && !doc && siteChatState === "unknown") return null
 
-  if (doc) {
-    // One round button stands for the open file: it closes it and goes back to the start.
-    const label = `${doc.name} — close and open another`
+  if (shown) {
+    // One round button stands for the open page: it closes it and goes back to the start.
+    const label = blankStart ? "New page" : `${shown.name} — close and open another`
     return (
       <>
         <StunningMarkdown
+          key={page}
           markdown={typed.text}
           streaming={typed.streaming}
           classifier={classifier}
           chat={chat}
           chatAccessory={
             <button type="button" onClick={close} aria-label={label} title={label}>
-              <FileTextIcon aria-hidden />
+              {blankStart ? <SquarePenIcon aria-hidden /> : <FileTextIcon aria-hidden />}
             </button>
           }
           resolveUrl={resolveUrl}
+          themeColor
           editable
         />
         {/* Without a model to ask there is no input: just the open file's name, and the way back. */}
         {!chat && (
           <div className="fixed bottom-4 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-1 rounded-full border bg-background/90 py-1 pr-1 pl-3.5 text-sm shadow-lg backdrop-blur">
             <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="min-w-0 truncate">{doc.name}</span>
+            <span className="min-w-0 truncate">{shown.name}</span>
             <Button variant="ghost" size="icon-sm" className="shrink-0 rounded-full" onClick={close} aria-label="Close document and open another" title="Close">
               <XIcon />
             </Button>
@@ -231,7 +258,7 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center gap-10 px-5 py-16 sm:px-8">
+    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center gap-10 px-5 pt-[calc(4rem+env(safe-area-inset-top))] pb-16 sm:px-8">
       <header className="flex flex-col gap-4">
         <p className="font-mono text-sm text-muted-foreground">stunning-md</p>
         <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-6xl">

@@ -317,6 +317,7 @@ A few settings shape the demo at build time (`.env.local`, or the environment of
 | `NEXT_PUBLIC_START=blank` | Open on a blank page to chat into, when the site has a chat model, where the landing page would be. The round button beside the input then starts a new blank page; `?open` in the address asks for the landing page. |
 | `NEXT_PUBLIC_SITE_API=1` | For a static export copied to a host that answers `<base>/api/classify` and `<base>/api/chat` itself — a reverse proxy in front of a classifier and a chat model, say. A `GET` must answer `{"configured": true}` and a `POST` behave as the routes in `src/app/api` do; the page then uses them as it does on the server build, and no key is in the site. |
 | `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_ICON` | A name, and the address of a square 512 px PNG, make the site installable to a phone's home screen under that name and icon. The icon has to be reachable without a login. |
+| `APP_ICON_FILE` | The icon as a PNG file on the build machine (180 px is enough for a phone): it is written into the page and the manifest themselves, for a site where nothing is reachable without a login. The address, if given too, is then only the browser tab's icon. |
 
 ### Hosting it on GitHub Pages
 

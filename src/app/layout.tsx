@@ -4,6 +4,7 @@ import "./globals.css";
 import "katex/dist/katex.min.css";
 import "generative-charts/styles.css";
 import "@/stunning-md/stunning.css";
+import { homeIcon, tabIcon } from "./app-icon";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -17,10 +18,9 @@ const geistMono = Geist_Mono({
 
 /**
  * Build-time, optional: a name and an icon make the site installable to a phone's
- * home screen (`NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_ICON` — a square PNG, 512 px).
+ * home screen (`NEXT_PUBLIC_APP_NAME`, and the icon of `./app-icon`).
  */
 const appName = process.env.NEXT_PUBLIC_APP_NAME;
-const appIcon = process.env.NEXT_PUBLIC_APP_ICON;
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export const metadata: Metadata = {
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
         other: { "apple-mobile-web-app-capable": "yes" },
       }
     : {}),
-  ...(appIcon ? { icons: { icon: appIcon, apple: appIcon } } : {}),
+  ...(homeIcon ? { icons: { ...(tabIcon ? { icon: tabIcon } : {}), apple: homeIcon } } : {}),
 };
 
 /** `cover` lets the page reach the screen's edges; the safe-area insets keep its controls clear of them. */

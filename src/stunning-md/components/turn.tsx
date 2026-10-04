@@ -266,7 +266,10 @@ export function TurnView({
     if (locking && !locked && hasText) setLocked(suggested)
   }
   // Frontmatter alone says too little to choose by: wait for the first words of the text itself.
-  const seedSource = opening === undefined ? (bodyText.trim() ? markdown : null) : opening
+  // A turn that ends without a word of its own — a picture and nothing else — has to choose by what it has,
+  // or it would wait for an opening that never comes and stay unseen.
+  const wordless = !streaming && hasText ? markdown : null
+  const seedSource = (opening === undefined ? (bodyText.trim() ? markdown : null) : opening) || wordless
   if (locking && seed === null && seedSource) setSeed(seedSource)
   const seedTheme = useMemo<ThemeChoice | null>(() => {
     if (seed === null) return null

@@ -14,6 +14,113 @@ export type ParsedMarkdown = {
 }
 
 const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath).use(remarkFrontmatter, ["yaml"])
+/** The same reading without maths: used to find where code, raw HTML and frontmatter are. */
+const plain = unified().use(remarkParse).use(remarkGfm).use(remarkFrontmatter, ["yaml"])
+
+const SPACE = /\s/
+const DIGIT = /\d/
+/** A `$` that is not part of `$$`. */
+const LONE_DOLLAR = /(^|[^$])\$(?!\$)/
+const BLANK_AHEAD = /^[ \t]*(\r?\n|$)/
+
+/**
+ * "$60M and $64M" is money, not maths. As in Pandoc, a `$` opens a formula only
+ * if the next `$` closes one: the two must hug what is between them, and the
+ * closing one must not run into a digit. Every other lone `$` is escaped before
+ * the text is parsed, so nothing beside an amount — bold, a link, the rest of a
+ * table cell — is swallowed by a formula that was never there. `$$…$$` is left
+ * alone, as are dollars in code, raw HTML and frontmatter.
+ */
+export function escapeMoney(markdown: string): string {
+  if (!LONE_DOLLAR.test(markdown)) return markdown
+  const skipped: [number, number][] = []
+  const visit = (node: Root | RootContent) => {
+    if (node.type === "code" || node.type === "inlineCode" || node.type === "html" || node.type === "yaml") {
+      const { start, end } = node.position ?? {}
+      if (start?.offset != null && end?.offset != null) skipped.push([start.offset, end.offset])
+    } else if ("children" in node) node.children.forEach(visit)
+  }
+  visit(plain.parse(markdown) as Root)
+
+  let range = 0
+  /** The end of the stretch left as written that `index` is in, or -1. */
+  const skipFrom = (index: number) => {
+    while (range < skipped.length && skipped[range][1] <= index) range++
+    return range < skipped.length && skipped[range][0] <= index ? skipped[range][1] : -1
+  }
+  const runAt = (index: number) => {
+    let length = 0
+    while (markdown[index + length] === "$") length++
+    return length
+  }
+  /** The next lone `$` in the same paragraph, or -1: where a formula opened at `from` would have to close. */
+  const closer = (from: number) => {
+    const saved = range
+    let found = -1
+    for (let i = from; i < markdown.length; ) {
+      const end = skipFrom(i)
+      if (end > i) {
+        i = end
+        continue
+      }
+      const ch = markdown[i]
+      if (ch === "\\") {
+        i += 2
+        continue
+      }
+      // A blank line ends the paragraph, and with it anything a formula could span.
+      if (ch === "\n" && BLANK_AHEAD.test(markdown.slice(i + 1, i + 80))) break
+      if (ch === "$") {
+        if (runAt(i) === 1) found = i
+        break
+      }
+      i++
+    }
+    range = saved
+    return found
+  }
+
+  let out = ""
+  for (let i = 0; i < markdown.length; ) {
+    const end = skipFrom(i)
+    if (end > i) {
+      out += markdown.slice(i, end)
+      i = end
+      continue
+    }
+    const ch = markdown[i]
+    if (ch === "\\") {
+      out += markdown.slice(i, i + 2)
+      i += 2
+      continue
+    }
+    if (ch !== "$") {
+      out += ch
+      i++
+      continue
+    }
+    const run = runAt(i)
+    if (run > 1) {
+      // Display maths: through to the run that closes it, if there is one.
+      const close = markdown.indexOf("$".repeat(run), i + run)
+      const stop = close < 0 ? i + run : close + run
+      out += markdown.slice(i, stop)
+      i = stop
+      continue
+    }
+    const next = markdown[i + 1]
+    const close = next !== undefined && !SPACE.test(next) ? closer(i + 1) : -1
+    const formula = close > i + 1 && !SPACE.test(markdown[close - 1]) && !DIGIT.test(markdown[close + 1] ?? "")
+    if (formula) {
+      out += markdown.slice(i, close + 1)
+      i = close + 1
+    } else {
+      out += "\\$"
+      i++
+    }
+  }
+  return out
+}
 
 const attr = (tag: string, name: string) =>
   new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(tag)?.slice(2).find((v) => v != null)
@@ -71,14 +178,7 @@ function collectDefinitions(nodes: RootContent[], into: Definitions = new Map())
 }
 
 function cleanPhrasing(children: PhrasingContent[], defs: Definitions): PhrasingContent[] {
-  return children.flatMap((child, index): PhrasingContent[] => {
-    // "$60M and $64M" is money, not maths: as in Pandoc, the dollars must hug the
-    // formula and the closing one must not run into a digit.
-    if (child.type === "inlineMath") {
-      const next = children[index + 1]
-      const digitAfter = next?.type === "text" && /^\d/.test(next.value)
-      if (/^\s|\s$/.test(child.value) || digitAfter) return [{ type: "text", value: `$${child.value}$` }]
-    }
+  return children.flatMap((child): PhrasingContent[] => {
     if (child.type === "html") return htmlToPhrasing(child.value)
     // Reference-style links and images are resolved so renderers only meet the direct forms.
     if (child.type === "imageReference") {
@@ -123,7 +223,7 @@ function cleanBlocks(nodes: RootContent[], defs: Definitions): RootContent[] {
 }
 
 export function parseMarkdown(markdown: string): ParsedMarkdown {
-  const tree = processor.parse(markdown) as Root
+  const tree = processor.parse(escapeMoney(markdown)) as Root
   let frontmatter: Frontmatter = {}
   const first = tree.children[0]
   if (first?.type === "yaml") {

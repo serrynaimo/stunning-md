@@ -30,6 +30,11 @@ export type StunningMarkdownProps = {
    */
   chat?: Chat
   /**
+   * More for the chat model to go on — who it is writing for, a house style —
+   * added to `CHAT_INSTRUCTIONS` in the system message of every request.
+   */
+  chatInstructions?: string
+  /**
    * Answers the judgement calls structure cannot settle (theme, typography,
    * ambiguous tables, hero image). Without it everything is decided by rules.
    */
@@ -68,6 +73,13 @@ export type StunningMarkdownProps = {
    * round button to the left of the chat input.
    */
   chatAccessory?: React.ReactNode
+  /**
+   * Give the browser's own surfaces the colour of the page: `<meta name="theme-color">`
+   * and the document's background follow the theme, so a phone's status bar, its
+   * toolbar and the space past the ends of the page match. For when the component
+   * is the whole page; it changes `<html>` and `<body>`, so it is off by default.
+   */
+  themeColor?: boolean
   className?: string
   /** Called whenever the plan or theme changes — useful for debugging and tooling. */
   onPlan?: (plan: DocumentPlan, theme: ThemeChoice) => void
@@ -104,6 +116,32 @@ function useWide(target: React.RefObject<HTMLElement | null>, minWidth: number):
   return wide
 }
 
+/**
+ * Gives the browser's own surfaces a colour, for as long as it is given one: the
+ * status bar and toolbars take `theme-color` where they honour it, and show the
+ * document's background everywhere else. What was there before is put back.
+ */
+function usePageColour(colour: string | null) {
+  useEffect(() => {
+    if (!colour) return
+    const html = document.documentElement
+    const body = document.body
+    const before = { html: html.style.backgroundColor, body: body.style.backgroundColor }
+    // The first `theme-color` in the document is the one browsers go by.
+    const meta = document.createElement("meta")
+    meta.name = "theme-color"
+    meta.content = colour
+    document.head.prepend(meta)
+    html.style.backgroundColor = colour
+    body.style.backgroundColor = colour
+    return () => {
+      meta.remove()
+      html.style.backgroundColor = before.html
+      body.style.backgroundColor = before.body
+    }
+  }, [colour])
+}
+
 /** The look of the chat itself — sidebar and input — whatever the turns are wearing. */
 const CHAT_THEME = themeChoice("ink")
 
@@ -124,7 +162,9 @@ function Page({
   markdown,
   streaming = false,
   chat,
+  chatInstructions,
   chatAccessory,
+  themeColor = false,
   editable = false,
   onMarkdownChange,
   classifier,
@@ -165,6 +205,7 @@ function Page({
     chat,
     classifier,
     document: hasDocument ? markdown : "",
+    instructions: chatInstructions,
     // Bring the new turn into view; its content will appear there.
     onTurnStart: useCallback((turnId: string) => {
       before.current = window.scrollY
@@ -244,6 +285,7 @@ function Page({
     [autoTheme, pageTheme, activeTurn, reports, palettePicks, fixedTheme],
   )
   const style = useMemo(() => themeVars(theme, appearance), [theme, appearance])
+  usePageColour(themeColor ? ((style as Record<string, string>)["--background"] ?? null) : null)
   // The conversation is not part of any one answer: its sidebar and input keep a
   // plain look of their own while the turns beside them each wear their theme.
   const neutralStyle = useMemo(() => themeVars(CHAT_THEME, appearance), [appearance])

@@ -232,6 +232,14 @@ describe("titles and context", () => {
     expect(context).toContain("<document>\n# Title\n\nBody\n</document>")
     expect(documentContext("x".repeat(20000)).length).toBeLessThan(16400)
   })
+
+  it("puts the host's own instructions after its own and before the document", async () => {
+    const { CHAT_INSTRUCTIONS, chatSystemPrompt, documentContext } = await import("@/stunning-md/chat")
+    expect(chatSystemPrompt("")).toBe(CHAT_INSTRUCTIONS)
+    expect(chatSystemPrompt("", "  \n ")).toBe(CHAT_INSTRUCTIONS)
+    expect(chatSystemPrompt("", " Write for a board of directors. ")).toBe(`${CHAT_INSTRUCTIONS}\n\nWrite for a board of directors.`)
+    expect(chatSystemPrompt("# Title", "Be brief.")).toBe(`${CHAT_INSTRUCTIONS}\n\nBe brief.${documentContext("# Title")}`)
+  })
 })
 
 describe("replies that are not answers", () => {

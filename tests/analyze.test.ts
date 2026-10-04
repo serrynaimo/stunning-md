@@ -3,7 +3,7 @@ import type { Table } from "mdast"
 import { describe, expect, it } from "vitest"
 import { collectImageUrls, planDocument } from "@/stunning-md/analyze/plan"
 import { buildTableModel, parseDate, parseNumber, planViz, withVizKind } from "@/stunning-md/analyze/tables"
-import { parseMarkdown } from "@/stunning-md/parse"
+import { escapeMoney, parseMarkdown } from "@/stunning-md/parse"
 import type { Block, ImageMeta } from "@/stunning-md/types"
 
 const table = (markdown: string) => {
@@ -282,6 +282,45 @@ describe("unusual documents", () => {
     const root = parseMarkdown("Between $60M and $64M, where $x^2$ holds.").root
     const types = (root.children[0] as { children: { type: string }[] }).children.map((c) => c.type)
     expect(types.filter((t) => t === "inlineMath")).toHaveLength(1)
+  })
+
+  describe("money beside other markup", () => {
+    type Node = { type: string; value?: string; children?: Node[] }
+    const inline = (markdown: string) => (parseMarkdown(markdown).root.children[0] as Node).children ?? []
+    const text = (nodes: Node[]): string => nodes.map((n) => n.value ?? text(n.children ?? [])).join("")
+
+    it("leaves bold around an amount intact", () => {
+      const nodes = inline("**US$60K** from angels, then an oversubscribed **Seed of S$475K** from two funds.")
+      expect(nodes.filter((n) => n.type === "strong").map((n) => text(n.children ?? []))).toEqual(["US$60K", "Seed of S$475K"])
+      expect(nodes.some((n) => n.type === "inlineMath")).toBe(false)
+      expect(text(nodes)).not.toContain("*")
+    })
+
+    it("still finds a formula after an amount", () => {
+      const nodes = inline("Paid $5 for it, and $x$ is a variable; so is $2n$.")
+      expect(nodes.filter((n) => n.type === "inlineMath").map((n) => n.value)).toEqual(["x", "2n"])
+      expect(text(nodes)).toContain("Paid $5 for it")
+    })
+
+    it("keeps amounts in table cells as text", () => {
+      const table = parseMarkdown("| Item | Price |\n| --- | --- |\n| Tesla | $371 |\n| SpaceX | $159 |").root.children[0] as Node
+      const cells = (table.children ?? []).flatMap((row) => row.children ?? [])
+      expect(cells.map((cell) => text(cell.children ?? []))).toEqual(["Item", "Price", "Tesla", "$371", "SpaceX", "$159"])
+    })
+
+    it("leaves code, display maths, escapes and frontmatter as written", () => {
+      expect(escapeMoney("Run `echo $HOME and $PATH` now.")).toBe("Run `echo $HOME and $PATH` now.")
+      expect(escapeMoney("```sh\ncost=$5; echo $cost\n```")).toBe("```sh\ncost=$5; echo $cost\n```")
+      expect(escapeMoney("$$E = mc^2$$ costs $5")).toBe("$$E = mc^2$$ costs \\$5")
+      expect(escapeMoney("Already \\$5 and $x$.")).toBe("Already \\$5 and $x$.")
+      const parsed = parseMarkdown("---\nprice: $5 to $6\n---\n\nFrom $5 to $6.")
+      expect(parsed.frontmatter.price).toBe("$5 to $6")
+      expect(text((parsed.root.children[0] as Node).children ?? [])).toBe("From $5 to $6.")
+    })
+
+    it("does not carry a formula across a blank line", () => {
+      expect(escapeMoney("It costs $x\n\nand y$ more.")).toBe("It costs \\$x\n\nand y\\$ more.")
+    })
   })
 
   it("takes the title from frontmatter when there is no H1", () => {

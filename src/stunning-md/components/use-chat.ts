@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { CHAT_INSTRUCTIONS, documentContext, sortReply, wantsContent, type Chat, type ChatMessage } from "../chat"
+import { chatSystemPrompt, sortReply, wantsContent, type Chat, type ChatMessage } from "../chat"
 import type { Classify } from "../classifier"
 
 /** The content of one assistant reply, as it accumulates. */
@@ -50,12 +50,14 @@ export function useChatSession(options: {
   chat?: Chat
   classifier?: Classify
   document: string
+  /** Added to the instructions the model is given. */
+  instructions?: string
   /** A turn has a place on the page and is about to be written. */
   onTurnStart?: (turnId: string) => void
   /** A turn turned out to have nothing for the page; its place is given up. */
   onTurnEmpty?: (turnId: string) => void
 }) {
-  const { chat, classifier, document, onTurnStart, onTurnEmpty } = options
+  const { chat, classifier, document, instructions, onTurnStart, onTurnEmpty } = options
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [items, setItems] = useState<StreamItem[]>([])
   const [notes, setNotes] = useState<ChatNote[]>([])
@@ -126,7 +128,7 @@ export function useChatSession(options: {
       ])
       asksForContent.then((wanted) => wanted && place())
 
-      const messages: ChatMessage[] = [{ role: "system", content: CHAT_INSTRUCTIONS + documentContext(document) }, ...history.current, { role: "user", content: request }]
+      const messages: ChatMessage[] = [{ role: "system", content: chatSystemPrompt(document, instructions) }, ...history.current, { role: "user", content: request }]
 
       // The first text to come back ends the wait, well before a whole paragraph is ready to be sorted.
       const reply = chat(messages, controller.signal)
@@ -183,7 +185,7 @@ export function useChatSession(options: {
           setBusy(false)
         })
     },
-    [chat, classifier, document, onTurnStart, onTurnEmpty],
+    [chat, classifier, document, instructions, onTurnStart, onTurnEmpty],
   )
 
   const stop = useCallback(() => abort.current?.abort(), [])

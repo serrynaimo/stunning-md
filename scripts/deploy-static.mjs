@@ -14,7 +14,8 @@ const build = spawnSync("npx next build", { stdio: "inherit", shell: true, env: 
 if (build.status !== 0 || !existsSync("out/index.html")) throw new Error("next build failed")
 
 mkdirSync(target, { recursive: true })
-for (const name of readdirSync(target)) if (!name.startsWith(".")) rmSync(join(target, name), { recursive: true, force: true })
+// "media" is the host's: what the agent generated, copied there for the page to show.
+for (const name of readdirSync(target)) if (!name.startsWith(".") && name !== "media") rmSync(join(target, name), { recursive: true, force: true })
 // The export's own dot-files (.nojekyll) are not needed outside GitHub Pages.
 cpSync("out", target, { recursive: true, filter: (source) => !/[\\/]\.[^\\/]+$/.test(source) })
 console.log(`deployed -> ${target}`)

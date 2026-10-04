@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.1
+
+No prop or export was removed or renamed.
+
+### Added
+
+- **`themeColor`.** Gives the browser's own surfaces the page's colour: `<meta name="theme-color">` and the background of `<html>` and `<body>` follow the current theme, so a phone's status bar, its toolbar and the space past the ends of the page match. Off by default, since it reaches outside the component.
+- **`chatInstructions`.** Text of your own added to `CHAT_INSTRUCTIONS` in the chat's system prompt. `chatSystemPrompt(document, instructions)` builds the same system message for use outside the component.
+- Demo: build settings to open on a blank page (`NEXT_PUBLIC_START=blank`), to use `/api` routes the host provides in a static export (`NEXT_PUBLIC_SITE_API=1`), and to make the site installable to a home screen (`NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_ICON`).
+
+### Changed
+
+- `CHAT_INSTRUCTIONS` asks for more of what the page can lay out: any answer that informs gets a title and sections, tables are preferred for figures and comparisons, `###` blurbs — which become cards — over label-and-dash paragraphs and long bullet lists, and pictures are added only from image URLs the model has looked up.
+
+### Fixed
+
+- **Phones.** Where the page runs under the status bar and the home indicator — `viewport-fit=cover`, or a site installed to the home screen — the top bar grows by the inset above it, the chat input sits above the one below, and the conversation ends clear of the input. A site installed to an iPhone's home screen that draws under the status bar is told a window height short by that bar, which left the input floating above the bottom of the screen: heights are now measured from the whole screen.
+- **Money beside other markup.** An amount no longer breaks the formatting around it: `**US$60K** … **S$475K**` kept its asterisks and lost its bold, because the text between the two dollars was first read as a formula. Dollars that cannot be maths are now set aside before the text is parsed; `$x$` and `$$…$$` are read as before, and a formula after an amount (`$5 … $x$`) is now found.
+
 ## 0.2.0
 
 Everything in 0.1.0 still works as it did: no prop or export was removed or renamed.

@@ -1,6 +1,6 @@
 {
   "name": "stunning-md",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Turn any markdown document — a file, or a model's answer as it streams — into a designed, responsive web page.",
   "keywords": [
     "markdown",

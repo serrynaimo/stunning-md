@@ -118,7 +118,7 @@ When `streaming` goes back to `false`, the rest of the text is laid out and the 
 
 To do the same outside the component, `settledMarkdown(text)` returns the part of a growing text that is ready, and the heading being written. If your model wraps its answer in remarks ("Sure, here is…"), `sortReply` separates those from the content as it streams — that is what the chat below is built on.
 
-It helps to tell the model what it is writing for. `CHAT_INSTRUCTIONS` is a short system prompt that does: answer in markdown with a title and sections, keep remarks to the reader apart from the content, and — since the page draws charts itself — write data as a plain markdown table rather than describing or drawing a chart.
+It helps to tell the model what it is writing for. `CHAT_INSTRUCTIONS` is a short system prompt that does: whatever informs is content for a page, so give it a title and sections; prefer tables to prose for figures and `###` blurbs — which become cards — to runs of bullets; write data as a plain markdown table rather than describing or drawing a chart, since the page draws charts itself; add pictures only from image URLs it has looked up; and keep remarks to the reader apart from the content.
 
 ### Adding chat (optional)
 
@@ -164,7 +164,7 @@ Each answer chooses its theme once, from its opening and the request, and keeps 
 
 Headings, lists, tables, code and images are always content. A plain paragraph is judged by where it sits and how it reads: remarks come at the start or the end of a reply and usually announce themselves. The classifier is asked about the unclear ones — on its own it is not a reliable judge of this, so it never overrules both position and wording. Without a classifier, the first paragraph of a reply is taken as commentary, and so is the last.
 
-The open document and the conversation so far are sent to the chat model with each request, after `CHAT_INSTRUCTIONS` as the system prompt.
+The open document and the conversation so far are sent to the chat model with each request, after `CHAT_INSTRUCTIONS` as the system prompt. `chatInstructions` adds to that prompt — who the page is for, a house style, what the model may look up: `<StunningMarkdown chat={chat} chatInstructions="Write for a board of directors. Amounts in euros." />`. `chatSystemPrompt(document, instructions)` builds the same system message for a chat of your own.
 
 ### Props
 
@@ -174,6 +174,7 @@ The open document and the conversation so far are sent to the chat model with ea
 | `streaming` | `boolean` | `false` | The text is still being written; lay it out as it grows. |
 | `classifier` | `Classify` | — | Answers judgement calls; omit for rules only. |
 | `chat` | `Chat` | — | Lets the reader ask for content; answers are laid out on the page. |
+| `chatInstructions` | `string` | — | Added to `CHAT_INSTRUCTIONS` in the chat's system prompt. |
 | `theme` | `Partial<ThemeChoice>` | — | Fix `palette`, `fonts` or `formality` (corner style). |
 | `autoTheme` | `boolean` | `true` | Choose a theme to suit each document and answer. `false` stays on one theme. |
 | `appearance` | `"auto" \| "light" \| "dark"` | `"auto"` | `auto` follows the system setting. |
@@ -182,6 +183,7 @@ The open document and the conversation so far are sent to the chat model with ea
 | `editable` | `boolean` | `false` | Let the reader edit the text in the markdown view. |
 | `onMarkdownChange` | `(markdown: string) => void` | — | Called when the reader's edits are applied. |
 | `chatAccessory` | `ReactNode` | — | A button or link of your own, shown as a round button left of the chat input. |
+| `themeColor` | `boolean` | `false` | Give the browser's bars and the document's background the page's colour. |
 | `loadFonts` | `boolean` | `true` | Load the theme's typefaces from Google Fonts. |
 | `settleMs` | `number` | `2500` | Longest wait for an image to report its size. |
 | `maxWaitMs` | `number` | `8000` | Longest the loader waits for the classifier and fonts. |
@@ -190,6 +192,12 @@ The open document and the conversation so far are sent to the chat model with ea
 
 A theme can also be set per document, in frontmatter: `theme: midnight`.
 
+### On a phone
+
+The page keeps clear of a phone's status bar and home indicator by itself: where it runs under them — your viewport has `viewport-fit=cover`, or the site is installed to the home screen — its top bar grows by the inset above it and the chat input sits above the one below. Nothing is needed for this, and nothing changes where the browser keeps its own bars there.
+
+`themeColor` goes one step further and gives the browser's own surfaces the colour of the page: it keeps a `<meta name="theme-color">` and the background of `<html>` and `<body>` on the current theme's background, so the status bar, the toolbar and the space past the ends of the page match it as the theme changes. It is off by default because it reaches outside the component; turn it on when the component is the whole page.
+
 To keep your own look throughout, switch the choosing off: `<StunningMarkdown markdown={text} autoTheme={false} theme={{ palette: "ocean" }} />` wears that one theme for the document and for everything a chat or a stream adds to it, and asks the classifier nothing about themes. Without a `palette` it stays on `paper`. Readers have the same switch — "Match the content", at the top of the theme menu: with it off, the theme they are looking at stays, and any theme they pick applies to the whole page.
 
 ### Entry points
@@ -197,7 +205,7 @@ To keep your own look throughout, switch the choosing off: `<StunningMarkdown ma
 | Import | Contents | Runs |
 | --- | --- | --- |
 | `stunning-md` | `StunningMarkdown`, `createClassifier`, `createChat`, themes, and everything in `core` | In the browser |
-| `stunning-md/core` | `parseMarkdown`, `planDocument`, table inference, `judgeDocument`, `settledMarkdown`, `sortReply`, `wantsContent`, `CHAT_INSTRUCTIONS`, theme data | Anywhere — no React |
+| `stunning-md/core` | `parseMarkdown`, `planDocument`, table inference, `judgeDocument`, `settledMarkdown`, `sortReply`, `wantsContent`, `CHAT_INSTRUCTIONS`, `chatSystemPrompt`, theme data | Anywhere — no React |
 | `stunning-md/server` | `createClassifierHandler`, `createChatHandler` | On the server |
 | `stunning-md/styles.css` | All styles for the component | — |
 
@@ -298,6 +306,17 @@ Samples live in `public/samples/` and open directly with `?sample=annual-report`
 To try the chat, add `STUNNING_MD_CHAT_URL` and `STUNNING_MD_CHAT_MODEL` (and `STUNNING_MD_CHAT_KEY` if the provider needs one) to `.env.local`. Without a model to hand, `node scripts/mock-chat.mjs` runs a stand-in that streams canned answers at `http://localhost:3490/v1/chat/completions`. With chat available, the landing page also offers to start from a blank page.
 
 If the server has no classifier or chat model configured, the landing page offers a form for the visitor's own — an endpoint and key for the classifier; an address, model name and optional key for chat. Those are checked with one test question, kept only in that browser's `localStorage`, and sent straight from the browser to the endpoint — never through this site's server. The endpoint therefore has to allow cross-origin requests.
+
+### Build settings
+
+A few settings shape the demo at build time (`.env.local`, or the environment of the build):
+
+| Setting | |
+| --- | --- |
+| `NEXT_PUBLIC_BASE_PATH` | The sub-path the site is served from, e.g. `/stunning-md`. |
+| `NEXT_PUBLIC_START=blank` | Open on a blank page to chat into, when the site has a chat model, where the landing page would be. The round button beside the input then starts a new blank page; `?open` in the address asks for the landing page. |
+| `NEXT_PUBLIC_SITE_API=1` | For a static export copied to a host that answers `<base>/api/classify` and `<base>/api/chat` itself — a reverse proxy in front of a classifier and a chat model, say. A `GET` must answer `{"configured": true}` and a `POST` behave as the routes in `src/app/api` do; the page then uses them as it does on the server build, and no key is in the site. |
+| `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_ICON` | A name, and the address of a square 512 px PNG, make the site installable to a phone's home screen under that name and icon. The icon has to be reachable without a login. |
 
 ### Hosting it on GitHub Pages
 

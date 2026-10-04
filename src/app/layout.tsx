@@ -21,6 +21,7 @@ const geistMono = Geist_Mono({
  */
 const appName = process.env.NEXT_PUBLIC_APP_NAME;
 const appIcon = process.env.NEXT_PUBLIC_APP_ICON;
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export const metadata: Metadata = {
   title: appName ?? "stunning-md — Markdown in. A beautifully designed website out.",
@@ -46,6 +47,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* A browser fetches a manifest without the login unless told otherwise; behind a password it is then refused. */}
+        <link rel="manifest" href={`${basePath}/manifest.webmanifest`} crossOrigin="use-credentials" />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

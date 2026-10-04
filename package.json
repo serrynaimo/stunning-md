@@ -58,6 +58,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build:static": "STATIC_EXPORT=1 next build",
+    "deploy": "node scripts/deploy-static.mjs",
     "build:lib": "tsup && tailwindcss -i src/stunning-md/package.css -o dist/styles.css --minify",
     "prepublishOnly": "npm run typecheck && npm test && npm run build:lib"
   },

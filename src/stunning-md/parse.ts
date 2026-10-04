@@ -1,9 +1,12 @@
 import type { Image, Paragraph, PhrasingContent, Root, RootContent } from "mdast"
+// For the names of the tokens a formula is made of.
+import type {} from "micromark-extension-math"
+import type { Code, Construct, State, Token, Tokenizer } from "micromark-util-types"
 import remarkFrontmatter from "remark-frontmatter"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
 import remarkParse from "remark-parse"
-import { unified } from "unified"
+import { unified, type Processor } from "unified"
 import { parse as parseYaml } from "yaml"
 
 export type Frontmatter = Record<string, unknown>
@@ -13,114 +16,147 @@ export type ParsedMarkdown = {
   frontmatter: Frontmatter
 }
 
-const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath).use(remarkFrontmatter, ["yaml"])
-/** The same reading without maths: used to find where code, raw HTML and frontmatter are. */
-const plain = unified().use(remarkParse).use(remarkGfm).use(remarkFrontmatter, ["yaml"])
-
-const SPACE = /\s/
-const DIGIT = /\d/
-/** A `$` that is not part of `$$`. */
-const LONE_DOLLAR = /(^|[^$])\$(?!\$)/
-const BLANK_AHEAD = /^[ \t]*(\r?\n|$)/
+const DOLLAR = 36
+const BACKSLASH = 92
+const BACKTICK = 96
+const LESS_THAN = 60
+const SPACE = 32
+/** Line endings are the codes below -2 in micromark; tabs and the spaces they stand for are -2 and -1. */
+const isLineEnding = (code: Code): code is number => code !== null && code < -2
+const isSpace = (code: Code) => code !== null && (code < 0 || code === SPACE || (code > 127 && /\s/.test(String.fromCharCode(code))))
+const isDigit = (code: Code) => code !== null && code >= 48 && code <= 57
 
 /**
- * "$60M and $64M" is money, not maths. As in Pandoc, a `$` opens a formula only
- * if the next `$` closes one: the two must hug what is between them, and the
- * closing one must not run into a digit. Every other lone `$` is escaped before
- * the text is parsed, so nothing beside an amount — bold, a link, the rest of a
- * table cell — is swallowed by a formula that was never there. `$$…$$` is left
- * alone, as are dollars in code, raw HTML and frontmatter.
+ * "$60M and $64M" is money, not maths. As in Pandoc, a lone `$` opens a formula
+ * only if the next `$` closes one: the two must hug what is between them, and
+ * the closing one must not run into a digit. A `$` that opens nothing is left
+ * as text, so nothing beside an amount — bold, a link, the rest of a table
+ * cell — is swallowed by a formula that was never there. A dollar in code, in
+ * a tag or in an address in angle brackets closes nothing, and neither does
+ * `\$`. `$$…$$` is read as remark-math reads it.
+ *
+ * This is remark-math's reading of `$…$` with those rules added. The telling
+ * apart happens as the text is read rather than before it: code, links and
+ * addresses have by then been taken for what they are, and nothing in the
+ * source has to be changed.
  */
-export function escapeMoney(markdown: string): string {
-  if (!LONE_DOLLAR.test(markdown)) return markdown
-  const skipped: [number, number][] = []
-  const visit = (node: Root | RootContent) => {
-    if (node.type === "code" || node.type === "inlineCode" || node.type === "html" || node.type === "yaml") {
-      const { start, end } = node.position ?? {}
-      if (start?.offset != null && end?.offset != null) skipped.push([start.offset, end.offset])
-    } else if ("children" in node) node.children.forEach(visit)
-  }
-  visit(plain.parse(markdown) as Root)
+const tokenizeMathText: Tokenizer = function (effects, ok, nok) {
+  const lone = () => sizeOpen === 1
+  /** Where in the text the character about to be read is. */
+  const at = () => this.now().offset
+  const { text } = this.parser.constructs
+  let sizeOpen = 0
+  let size = 0
+  let token: Token
+  /** The character before the one being read: a closing `$` does not follow a space. */
+  let last: Code = null
+  /** Where the code or tag being passed over ends, and where the one last looked at does. */
+  let until = 0
+  let ends = 0
 
-  let range = 0
-  /** The end of the stretch left as written that `index` is in, or -1. */
-  const skipFrom = (index: number) => {
-    while (range < skipped.length && skipped[range][1] <= index) range++
-    return range < skipped.length && skipped[range][0] <= index ? skipped[range][1] : -1
-  }
-  const runAt = (index: number) => {
-    let length = 0
-    while (markdown[index + length] === "$") length++
-    return length
-  }
-  /** The next lone `$` in the same paragraph, or -1: where a formula opened at `from` would have to close. */
-  const closer = (from: number) => {
-    const saved = range
-    let found = -1
-    for (let i = from; i < markdown.length; ) {
-      const end = skipFrom(i)
-      if (end > i) {
-        i = end
-        continue
+  /** The code, tag or address that starts here, read as the parser reads it, to learn where it ends. */
+  const span: Construct = {
+    partial: true,
+    tokenize(effects, ok, nok) {
+      const found: State = (code) => {
+        ends = at()
+        return ok(code)
       }
-      const ch = markdown[i]
-      if (ch === "\\") {
-        i += 2
-        continue
-      }
-      // A blank line ends the paragraph, and with it anything a formula could span.
-      if (ch === "\n" && BLANK_AHEAD.test(markdown.slice(i + 1, i + 80))) break
-      if (ch === "$") {
-        if (runAt(i) === 1) found = i
-        break
-      }
-      i++
-    }
-    range = saved
-    return found
+      return effects.attempt({ [BACKTICK]: text[BACKTICK], [LESS_THAN]: text[LESS_THAN] }, found, nok)
+    },
   }
 
-  let out = ""
-  for (let i = 0; i < markdown.length; ) {
-    const end = skipFrom(i)
-    if (end > i) {
-      out += markdown.slice(i, end)
-      i = end
-      continue
-    }
-    const ch = markdown[i]
-    if (ch === "\\") {
-      out += markdown.slice(i, i + 2)
-      i += 2
-      continue
-    }
-    if (ch !== "$") {
-      out += ch
-      i++
-      continue
-    }
-    const run = runAt(i)
-    if (run > 1) {
-      // Display maths: through to the run that closes it, if there is one.
-      const close = markdown.indexOf("$".repeat(run), i + run)
-      const stop = close < 0 ? i + run : close + run
-      out += markdown.slice(i, stop)
-      i = stop
-      continue
-    }
-    const next = markdown[i + 1]
-    const close = next !== undefined && !SPACE.test(next) ? closer(i + 1) : -1
-    const formula = close > i + 1 && !SPACE.test(markdown[close - 1]) && !DIGIT.test(markdown[close + 1] ?? "")
-    if (formula) {
-      out += markdown.slice(i, close + 1)
-      i = close + 1
-    } else {
-      out += "\\$"
-      i++
-    }
+  const start: State = (code) => {
+    effects.enter("mathText")
+    effects.enter("mathTextSequence")
+    return sequenceOpen(code)
   }
-  return out
+  const sequenceOpen: State = (code) => {
+    if (code === DOLLAR) {
+      effects.consume(code)
+      sizeOpen++
+      return sequenceOpen
+    }
+    effects.exit("mathTextSequence")
+    if (lone() && (code === null || isSpace(code))) return nok(code)
+    return between(code)
+  }
+  const between: State = (code) => {
+    if (code === null) return nok(code)
+    if (code === DOLLAR && at() >= until) {
+      token = effects.enter("mathTextSequence")
+      size = 0
+      return sequenceClose(code)
+    }
+    if (code === SPACE || isLineEnding(code)) {
+      const type = code === SPACE ? "space" : "lineEnding"
+      effects.enter(type)
+      effects.consume(code)
+      effects.exit(type)
+      last = code
+      return between
+    }
+    effects.enter("mathTextData")
+    return data(code)
+  }
+  const data: State = (code) => {
+    const passing = at() < until
+    if (code === null || code === SPACE || isLineEnding(code) || (code === DOLLAR && !passing)) {
+      effects.exit("mathTextData")
+      return between(code)
+    }
+    // A run of backticks is one thing: only its first can open code.
+    const opens = code === LESS_THAN || (code === BACKTICK && this.previous !== BACKTICK)
+    if (lone() && !passing && opens) return effects.check(span, spanned, plain)(code)
+    return plain(code)
+  }
+  const spanned: State = (code) => {
+    until = ends
+    return plain(code)
+  }
+  const plain: State = (code) => {
+    const escapes = code === BACKSLASH && lone() && at() >= until
+    effects.consume(code)
+    last = code
+    return escapes ? escaped : data
+  }
+  /** After a backslash: `\$` is a dollar sign in the formula, not the end of it. */
+  const escaped: State = (code) => {
+    if (code === null || code === SPACE || isLineEnding(code)) return data(code)
+    effects.consume(code)
+    last = code
+    return data
+  }
+  const sequenceClose: State = (code) => {
+    if (code === DOLLAR) {
+      effects.consume(code)
+      size++
+      return sequenceClose
+    }
+    if (size === sizeOpen) {
+      if (lone() && (isSpace(last) || isDigit(code))) return nok(code)
+      effects.exit("mathTextSequence")
+      effects.exit("mathText")
+      return ok(code)
+    }
+    // The next dollar after a lone one belongs to `$$`: the lone one opened nothing.
+    if (lone()) return nok(code)
+    token.type = "mathTextData"
+    last = DOLLAR
+    return data(code)
+  }
+  return start
 }
+
+/** Goes after `remarkMath`, and replaces its reading of `$…$` with the one above. */
+function moneyIsNotMaths(this: Processor) {
+  for (const extension of this.data().micromarkExtensions ?? []) {
+    const construct = extension.text?.[DOLLAR]
+    if (construct && !Array.isArray(construct) && construct.name === "mathText") extension.text![DOLLAR] = { ...construct, tokenize: tokenizeMathText }
+  }
+}
+
+const processor = unified().use(remarkParse).use(remarkGfm).use(remarkMath).use(moneyIsNotMaths).use(remarkFrontmatter, ["yaml"])
 
 const attr = (tag: string, name: string) =>
   new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(tag)?.slice(2).find((v) => v != null)
@@ -223,7 +259,7 @@ function cleanBlocks(nodes: RootContent[], defs: Definitions): RootContent[] {
 }
 
 export function parseMarkdown(markdown: string): ParsedMarkdown {
-  const tree = processor.parse(escapeMoney(markdown)) as Root
+  const tree = processor.parse(markdown) as Root
   let frontmatter: Frontmatter = {}
   const first = tree.children[0]
   if (first?.type === "yaml") {

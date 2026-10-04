@@ -3,7 +3,7 @@ import type { Table } from "mdast"
 import { describe, expect, it } from "vitest"
 import { collectImageUrls, planDocument } from "@/stunning-md/analyze/plan"
 import { buildTableModel, parseDate, parseNumber, planViz, withVizKind } from "@/stunning-md/analyze/tables"
-import { escapeMoney, parseMarkdown } from "@/stunning-md/parse"
+import { parseMarkdown } from "@/stunning-md/parse"
 import type { Block, ImageMeta } from "@/stunning-md/types"
 
 const table = (markdown: string) => {
@@ -309,17 +309,37 @@ describe("unusual documents", () => {
     })
 
     it("leaves code, display maths, escapes and frontmatter as written", () => {
-      expect(escapeMoney("Run `echo $HOME and $PATH` now.")).toBe("Run `echo $HOME and $PATH` now.")
-      expect(escapeMoney("```sh\ncost=$5; echo $cost\n```")).toBe("```sh\ncost=$5; echo $cost\n```")
-      expect(escapeMoney("$$E = mc^2$$ costs $5")).toBe("$$E = mc^2$$ costs \\$5")
-      expect(escapeMoney("Already \\$5 and $x$.")).toBe("Already \\$5 and $x$.")
+      expect(inline("Run `echo $HOME and $PATH` now.").find((n) => n.type === "inlineCode")?.value).toBe("echo $HOME and $PATH")
+      expect((parseMarkdown("```sh\ncost=$5; echo $cost\n```").root.children[0] as Node).value).toBe("cost=$5; echo $cost")
+      expect(inline("$$E = mc^2$$ costs $5").map((n) => [n.type, n.value])).toEqual([["inlineMath", "E = mc^2"], ["text", " costs $5"]])
+      expect(inline("Already \\$5 and $x$.").map((n) => [n.type, n.value])).toEqual([["text", "Already $5 and "], ["inlineMath", "x"], ["text", "."]])
       const parsed = parseMarkdown("---\nprice: $5 to $6\n---\n\nFrom $5 to $6.")
       expect(parsed.frontmatter.price).toBe("$5 to $6")
       expect(text((parsed.root.children[0] as Node).children ?? [])).toBe("From $5 to $6.")
     })
 
     it("does not carry a formula across a blank line", () => {
-      expect(escapeMoney("It costs $x\n\nand y$ more.")).toBe("It costs \\$x\n\nand y\\$ more.")
+      const paragraphs = parseMarkdown("It costs $x\n\nand y$ more.").root.children as Node[]
+      expect(paragraphs.map((p) => (p.children ?? []).map((n) => [n.type, n.value]))).toEqual([[["text", "It costs $x"]], [["text", "and y$ more."]]])
+    })
+
+    it("leaves addresses written out in the text as they are", () => {
+      type Link = Node & { url?: string }
+      const urls = (markdown: string) => (inline(markdown) as Link[]).filter((n) => n.type === "link").map((n) => n.url)
+      expect(urls("See https://example.com/pay?amount=$5 or <https://example.com/$5>, for $6.")).toEqual(["https://example.com/pay?amount=$5", "https://example.com/$5"])
+      expect(urls("Go to www.example.com/$5 now, $6 only.")).toEqual(["http://www.example.com/$5"])
+      expect(urls("[pay $5](https://example.com/?a=$5) and $6")).toEqual(["https://example.com/?a=$5"])
+    })
+
+    it("does not close a formula on a dollar in code or in a tag", () => {
+      const nodes = inline("It costs $20 a month. Set `$API_KEY` first, then <span title=\"x$y\">go</span>.")
+      expect(nodes.some((n) => n.type === "inlineMath")).toBe(false)
+      expect(nodes.filter((n) => n.type === "inlineCode").map((n) => n.value)).toEqual(["$API_KEY"])
+      expect(inline("So $a<b$ and $x_{`}$.").filter((n) => n.type === "inlineMath").map((n) => n.value)).toEqual(["a<b", "x_{`}"])
+    })
+
+    it("reads an escaped dollar in a formula as part of it", () => {
+      expect(inline("So $\\text{cost } \\$5$ in all.").filter((n) => n.type === "inlineMath").map((n) => n.value)).toEqual(["\\text{cost } \\$5"])
     })
   })
 

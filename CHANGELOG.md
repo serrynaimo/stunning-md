@@ -17,7 +17,7 @@ No prop or export was removed or renamed.
 ### Fixed
 
 - **Phones.** Where the page runs under the status bar and the home indicator — `viewport-fit=cover`, or a site installed to the home screen — the top bar grows by the inset above it, the chat input sits above the one below, and the conversation ends clear of the input. A site installed to an iPhone's home screen that draws under the status bar is told a window height short by that bar, which left the input floating above the bottom of the screen: heights are now measured from the whole screen.
-- **Money beside other markup.** An amount no longer breaks the formatting around it: `**US$60K** … **S$475K**` kept its asterisks and lost its bold, because the text between the two dollars was first read as a formula. Dollars that cannot be maths are now set aside before the text is parsed; `$x$` and `$$…$$` are read as before, and a formula after an amount (`$5 … $x$`) is now found.
+- **Money beside other markup.** An amount no longer breaks the formatting around it: `**US$60K** … **S$475K**` kept its asterisks and lost its bold, because the text between the two dollars was first read as a formula. A `$` now opens a formula only if the next one closes it, and that is settled as the text is read: `$x$` and `$$…$$` are read as before, a formula after an amount (`$5 … $x$`) is now found, and in a formula `\$` is a dollar sign rather than its end.
 
 ## 0.2.0
 

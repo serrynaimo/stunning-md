@@ -202,6 +202,21 @@ export function withMedia(text: string): string {
   })
 }
 
+/**
+ * The host copies a file the answer attaches once the answer is complete, which is after its tag
+ * arrived here: wait for the copy, or the page would ask for a picture that is not there yet.
+ */
+async function arrived(text: string, signal?: AbortSignal): Promise<void> {
+  const addresses = [...text.matchAll(/!\[\]\(([^)]+)\)/g)].map((m) => m[1]).filter((a) => a.startsWith(`${MEDIA}/`))
+  for (const address of addresses) {
+    for (let tries = 0; tries < 40 && !signal?.aborted; tries++) {
+      const there = await fetch(address, { method: "HEAD", cache: "no-store", signal }).then((r) => r.ok, () => false)
+      if (there) break
+      await new Promise((resolve) => setTimeout(resolve, 750))
+    }
+  }
+}
+
 /** Where a tag may still be arriving: from here on the text is held back until its line is complete. */
 function openTag(text: string): number {
   const at = text.lastIndexOf("MEDIA:")
@@ -239,6 +254,7 @@ async function* turn(messages: ChatMessage[], signal?: AbortSignal): AsyncGenera
           const cut = openTag(held)
           const ready = withMedia(held.slice(0, cut))
           held = held.slice(cut)
+          if (ready.includes(MEDIA)) await arrived(ready, signal)
           if (ready) yield ready
         } else if (event.event?.startsWith("run.") && ENDED.has(event.event.slice(4))) {
           end = { status: event.event.slice(4), output: typeof event.output === "string" ? event.output : undefined, error: typeof event.error === "string" ? event.error : undefined }
@@ -253,6 +269,7 @@ async function* turn(messages: ChatMessage[], signal?: AbortSignal): AsyncGenera
     if (end.status === "failed") throw new Error(end.error || "the request failed")
     if (end.status !== "completed" && !said) throw new Error(`the request was ${end.status}`)
     const rest = withMedia(held + remainder(said, end.output ?? ""))
+    if (rest.includes(MEDIA)) await arrived(rest, signal)
     if (rest) yield rest
   } finally {
     clearInterval(reminder)

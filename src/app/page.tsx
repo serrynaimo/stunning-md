@@ -4,8 +4,8 @@ import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, Fo
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { chatCompletionsUrl, createChat, createClassifier, sortReply, StunningMarkdown } from "@/stunning-md"
-import { createRunChat, forgetRun, settled, storedRun, type StoredRun } from "./hermes"
+import { CHAT_INSTRUCTIONS, chatCompletionsUrl, createChat, createClassifier, sortReply, StunningMarkdown } from "@/stunning-md"
+import { createRunChat, forgetRun, HERMES_INSTRUCTIONS, settled, storedRun, type StoredRun } from "./hermes"
 import { OwnChatForm, useOwnChat } from "./own-chat"
 import { OwnClassifierForm, useOwnClassifier } from "./own-classifier"
 
@@ -276,6 +276,7 @@ export default function Home() {
           streaming={typed.streaming || awaited}
           classifier={classifier}
           chat={chat}
+          chatInstructions={RUNS ? `${CHAT_INSTRUCTIONS} ${HERMES_INSTRUCTIONS}` : undefined}
           chatAccessory={
             <button type="button" onClick={close} aria-label={label} title={label}>
               {blankStart ? <SquarePenIcon aria-hidden /> : <FileTextIcon aria-hidden />}

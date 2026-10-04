@@ -18,6 +18,17 @@ import type { Chat, ChatMessage } from "@/stunning-md"
  * put the site to sleep.
  */
 
+/**
+ * Added to the library's instructions for this agent: how to come by real pictures quickly.
+ * One round of calls costs it a second or two; left to itself it either shows none or searches for minutes.
+ */
+export const HERMES_INSTRUCTIONS = [
+  "Show pictures whenever the subject can be seen — a place, person, product, building, artwork, animal, dish.",
+  "Get them in one round of parallel calls before writing: web_extract of https://en.wikipedia.org/api/rest_v1/page/summary/<Article_title> returns `thumbnail.source`; change its `330px-` to `1280px-`.",
+  "No other lookups for pictures: if one fails, leave it out.",
+  "Put each one that is not the banner on its own line under the `##` heading it belongs to.",
+].join(" ")
+
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
 const RUNS = `${BASE}/api/runs`
 const NOTIFY = process.env.NEXT_PUBLIC_NOTIFY === "1"

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { CHAT_INSTRUCTIONS, chatCompletionsUrl, createChat, createClassifier, sortReply, StunningMarkdown } from "@/stunning-md"
-import { createRunChat, forgetRun, HERMES_INSTRUCTIONS, settled, storedRun, type StoredRun } from "./hermes"
+import { createRunChat, forgetRun, HERMES_INSTRUCTIONS, settled, storedRun, withMedia, type StoredRun } from "./hermes"
 import { OwnChatForm, useOwnChat } from "./own-chat"
 import { OwnClassifierForm, useOwnClassifier } from "./own-classifier"
 
@@ -163,7 +163,7 @@ export default function Home() {
     settled(left.id, waiting.signal)
       .then(async (run) => {
         // Only the answer goes on the page; the model's remarks about it belonged to the conversation.
-        const reply = run.status === "completed" ? (run.output ?? "") : ""
+        const reply = run.status === "completed" ? withMedia(run.output ?? "") : ""
         const content = reply ? (await sortReply({ stream: once(reply), request: left.request, classify: classifier, signal: waiting.signal, onEvent: () => {} })).content : ""
         if (waiting.signal.aborted) return
         forgetRun(left.id)

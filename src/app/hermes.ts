@@ -23,8 +23,8 @@ import type { Chat, ChatMessage } from "@/stunning-md"
  * Its image_search tool answers in a second or two; left to itself it either shows none or searches for minutes.
  */
 export const HERMES_INSTRUCTIONS = [
-  "Show pictures whenever the subject can be seen — a place, person, product, building, artwork, animal, dish.",
-  "Before writing, call image_search once with every subject.",
+  "When the request is about public information and its subject can be seen — a place, person, product, building, artwork, animal, dish — show pictures: before writing, call image_search once with every subject.",
+  "Never search pictures for private or personal matters.",
   "A landscape result at least 1200 wide, alone on the first line before the title, becomes the banner; put each other one on its own line under the `##` heading it belongs to.",
 ].join(" ")
 
@@ -186,6 +186,30 @@ export function remainder(said: string, whole: string): string {
   return `\n\n${whole}`
 }
 
+/**
+ * What the agent generates — a picture, a video, speech — it names as `MEDIA:<file on its machine>`,
+ * which a messenger turns into an attachment. Here the host copies such a file into the site's
+ * `media` folder under its own name, so the tag becomes a picture, or a link to play.
+ */
+const MEDIA_TAG = /[`"'*_]{0,3}MEDIA:\s*[`"']?(?:[A-Za-z]:[\\/]|~?\/)[^\n`"']*?([^\\/\n`"']+\.(png|jpe?g|webp|gif|mp4|webm|mov|mp3|wav|ogg|m4a|opus))[`"']?[`"'*_]{0,3}/gi
+const MEDIA = `${BASE}/media`
+
+export function withMedia(text: string): string {
+  return text.replace(MEDIA_TAG, (_tag, name: string, kind: string) => {
+    const address = `${MEDIA}/${encodeURIComponent(name)}`
+    if (/^(png|jpe?g|webp|gif)$/i.test(kind)) return `\n\n![](${address})\n\n`
+    return `[${/^(mp4|webm|mov)$/i.test(kind) ? "Play the video" : "Play the audio"}](${address})`
+  })
+}
+
+/** Where a tag may still be arriving: from here on the text is held back until its line is complete. */
+function openTag(text: string): number {
+  const at = text.lastIndexOf("MEDIA:")
+  if (at >= 0 && !text.includes("\n", at)) return Math.max(0, at - 3)
+  for (let n = Math.min(6, text.length); n > 0; n--) if ("MEDIA:".startsWith(text.slice(-n))) return Math.max(0, text.length - n - 3)
+  return text.length
+}
+
 async function* turn(messages: ChatMessage[], signal?: AbortSignal): AsyncGenerator<string> {
   const instructions = messages.find((message) => message.role === "system")?.content
   const input = messages.filter((message) => message.role !== "system")
@@ -204,13 +228,18 @@ async function* turn(messages: ChatMessage[], signal?: AbortSignal): AsyncGenera
   signal?.addEventListener("abort", stop, { once: true })
 
   let said = ""
+  let held = ""
   let end: RunState | null = null
   try {
     try {
       for await (const event of events(id, signal)) {
         if (event.event === "message.delta" && typeof event.delta === "string") {
           said += event.delta
-          yield event.delta
+          held += event.delta
+          const cut = openTag(held)
+          const ready = withMedia(held.slice(0, cut))
+          held = held.slice(cut)
+          if (ready) yield ready
         } else if (event.event?.startsWith("run.") && ENDED.has(event.event.slice(4))) {
           end = { status: event.event.slice(4), output: typeof event.output === "string" ? event.output : undefined, error: typeof event.error === "string" ? event.error : undefined }
           break
@@ -223,7 +252,7 @@ async function* turn(messages: ChatMessage[], signal?: AbortSignal): AsyncGenera
     end ??= await settled(id, signal)
     if (end.status === "failed") throw new Error(end.error || "the request failed")
     if (end.status !== "completed" && !said) throw new Error(`the request was ${end.status}`)
-    const rest = remainder(said, end.output ?? "")
+    const rest = withMedia(held + remainder(said, end.output ?? ""))
     if (rest) yield rest
   } finally {
     clearInterval(reminder)

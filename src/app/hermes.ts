@@ -192,14 +192,16 @@ export function remainder(said: string, whole: string): string {
  * which a messenger turns into an attachment. Here the host copies such a file into the site's
  * `media` folder under its own name, so the tag becomes a picture or a player.
  */
-const MEDIA_TAG = /[`"'*_]{0,3}MEDIA:\s*[`"']?(?:[A-Za-z]:[\\/]|~?\/)[^\n`"']*?([^\\/\n`"']+\.(png|jpe?g|webp|gif|mp4|webm|mov|mp3|wav|ogg|m4a|opus))[`"']?[`"'*_]{0,3}/gi
+const MEDIA_PATH = String.raw`[\`"'*_]{0,3}MEDIA:\s*[\`"']?(?:[A-Za-z]:[\\/]|~?\/)[^\n\`"']*?([^\\/\n\`"']+\.(?:png|jpe?g|webp|gif|mp4|webm|mov|mp3|wav|ogg|m4a|opus))[\`"']?[\`"'*_]{0,3}`
+/** The tag, and around it the image or link the agent sometimes writes it into: `![what it shows](MEDIA:…)`. */
+const MEDIA_TAG = new RegExp(String.raw`(?:!?\[([^\]\n]*)\]\(\s*)?${MEDIA_PATH}(?:\s*\))?`, "gi")
 const MEDIA = `${BASE}/media`
 
 export function withMedia(text: string): string {
-  return text.replace(MEDIA_TAG, (_tag, name: string) => {
+  return text.replace(MEDIA_TAG, (_tag, alt: string | undefined, name: string) => {
     const address = `${MEDIA}/${encodeURIComponent(name)}`
     // Written as an image whatever it is: the page plays a film or a recording where a picture would stand.
-    return `\n\n![](${address})\n\n`
+    return `\n\n![${alt ?? ""}](${address})\n\n`
   })
 }
 
@@ -220,9 +222,11 @@ async function arrived(text: string, signal?: AbortSignal): Promise<void> {
 
 /** Where a tag may still be arriving: from here on the text is held back until its line is complete. */
 function openTag(text: string): number {
-  const at = text.lastIndexOf("MEDIA:")
-  if (at >= 0 && !text.includes("\n", at)) return Math.max(0, at - 3)
-  for (let n = Math.min(6, text.length); n > 0; n--) if ("MEDIA:".startsWith(text.slice(-n))) return Math.max(0, text.length - n - 3)
+  const line = text.lastIndexOf("\n") + 1
+  const last = text.slice(line)
+  // The line names a file, or opens an image or a link that may yet turn out to hold one, or ends in the tag's first letters.
+  if (last.includes("MEDIA:") || /!?\[[^\]\n]*(?:\]\([^)\n]*)?$/.test(last)) return line
+  for (let n = Math.min(6, last.length); n > 0; n--) if ("MEDIA:".startsWith(last.slice(-n))) return line
   return text.length
 }
 

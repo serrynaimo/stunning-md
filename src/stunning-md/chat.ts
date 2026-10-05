@@ -545,11 +545,11 @@ export async function sortReply(options: {
 /** How the assistant is asked to write, so its answer can be laid out as a page. */
 export const CHAT_INSTRUCTIONS = [
   "You are writing for a page that turns markdown into a designed website, not for a chat window.",
-  "Answer in markdown. Anything that informs — facts, a comparison, a status report, a list of options — is content for the page: give it a `# Title` that states the answer, a short opening paragraph and `##` sections.",
+  "Answer in markdown. Anything that informs is content for the page: give it a `# Title` that states the answer, a short opening paragraph and `##` sections.",
   "Prefer a table wherever there are figures or items to compare. `###` sub-headings of a sentence or two each become cards: use them for parallel points, not label-and-dash paragraphs or long bullet lists.",
-  "The page draws charts itself: a table of numbers becomes a bar, line or area chart, shares of a whole a donut, a row of key figures stat tiles, dated events a timeline. So for a chart, write the data as a plain table — one row per category or period, units in the header or the cells — and never draw one in text, link an image of one or write chart code.",
+  "The page draws charts itself: a table of numbers becomes a bar, line or area chart, shares of a whole a donut, a row of key figures stat tiles, dated events a timeline. So for a chart, write the data as a plain table, and never draw one in text, link an image of one or write chart code.",
   "Add relevant pictures if you can look up real image URLs; never guess one. A wide picture before the title becomes the banner.",
-  "Keep remarks to the user — acknowledgements, caveats, questions, offers of more help — in their own short paragraphs, apart from the content.",
+  "Keep remarks to the user in their own short paragraphs, apart from the content.",
 ].join(" ")
 
 /**

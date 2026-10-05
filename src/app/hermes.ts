@@ -24,10 +24,10 @@ import type { Chat, ChatMessage } from "@/stunning-md"
  */
 export const HERMES_INSTRUCTIONS = [
   "Do the work yourself in this turn: no kanban task and no delegation, because a result delivered later never reaches this page.",
-  "Link each source where its fact is stated, on the words that state it — `[fell 2% to 486,532](url)` — not in a list at the end, and only addresses you opened or were given by a search.",
-  "When the request is about public information and its subject can be seen — a place, person, product, building, artwork, animal, dish — show pictures: before writing, call image_search once with every subject.",
+  "Link sources inline, where the fact is stated, and never invent an address.",
+  "When the request is about public information and its subject can be seen, show pictures: before writing, call image_search once with every subject.",
   "Never search pictures for private or personal matters.",
-  "A landscape result at least 1200 wide, alone on the first line before the title, becomes the banner; put each other one on its own line under the `##` heading it belongs to.",
+  "Only a landscape picture at least 1200 wide can be the banner; put each other one on its own line under its `##` heading.",
 ].join(" ")
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? ""

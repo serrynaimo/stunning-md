@@ -27,7 +27,7 @@ export const HERMES_INSTRUCTIONS = [
   "Link sources inline, where the fact is stated, and never invent an address.",
   "When the request is about public information and its subject can be seen, show pictures: before writing, call image_search once with every subject.",
   "Never search pictures for private or personal matters.",
-  "Only a landscape picture at least 1200 wide can be the banner; put each other one on its own line under its `##` heading.",
+  "Only a landscape picture at least 1600 wide can be the banner; put each other one on its own line under its `##` heading.",
 ].join(" ")
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? ""

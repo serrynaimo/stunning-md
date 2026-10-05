@@ -225,7 +225,7 @@ function openTag(text: string): number {
   const line = text.lastIndexOf("\n") + 1
   const last = text.slice(line)
   // The line names a file, or opens an image or a link that may yet turn out to hold one, or ends in the tag's first letters.
-  if (last.includes("MEDIA:") || /!?\[[^\]\n]*(?:\]\([^)\n]*)?$/.test(last)) return line
+  if (last.includes("MEDIA:") || /(?:!|!?\[[^\]\n]*(?:\](?:\([^)\n]*)?)?)$/.test(last)) return line
   for (let n = Math.min(6, last.length); n > 0; n--) if ("MEDIA:".startsWith(last.slice(-n))) return line
   return text.length
 }

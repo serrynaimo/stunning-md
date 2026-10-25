@@ -94,6 +94,20 @@ async function* once(text: string) {
 /** `?open` in the address: read once the page is in the browser, since the prerendered page cannot know it. */
 const askedForLanding = () => new URLSearchParams(window.location.search).has("open")
 const unchanging = () => () => {}
+/**
+ * `?f=` in the address carries a whole markdown document to open, and `?q=` a request for the
+ * chat to answer as soon as the page is open — on that document, when both are given. Read once,
+ * when the page is in the browser.
+ */
+type Passed = { markdown: string | null; request: string | null }
+const NOTHING_PASSED: Passed = { markdown: null, request: null }
+let passed: Passed | undefined
+const passedInAddress = () => {
+  if (passed) return passed
+  const params = new URLSearchParams(window.location.search)
+  const markdown = params.get("f")
+  return (passed = { markdown: markdown?.trim() ? markdown : null, request: params.get("q")?.trim() || null })
+}
 /** A page with nothing on it yet, to chat into. */
 const BLANK: Loaded = { name: "New page", markdown: "", assets: new Map() }
 
@@ -174,11 +188,19 @@ export default function Home() {
     return () => waiting.abort()
   }, [left, recovered, classifier])
   const restored = useMemo<Loaded | null>(() => (left ? { name: left.request.slice(0, 60) || "New page", markdown: recovered ?? "", assets: new Map() } : null), [left, recovered])
-  const shown = doc ?? restored ?? (blankStart ? BLANK : null)
   // Starting over is a new page in every sense: nothing of the last conversation comes along.
   const [page, setPage] = useState(0)
+  // What the address passed belongs to the first page: closing that one starts over without it.
+  const fromAddress = useSyncExternalStore(unchanging, passedInAddress, () => NOTHING_PASSED)
+  const passedDoc = useMemo<Loaded | null>(
+    () => (page === 0 && fromAddress.markdown ? { name: fromAddress.markdown.match(/^#\s+(.+)$/m)?.[1].trim() || "Document", markdown: fromAddress.markdown, assets: new Map() } : null),
+    [page, fromAddress],
+  )
+  const request = page === 0 ? fromAddress.request : null
+  const opened = doc ?? passedDoc
+  const shown = opened ?? restored ?? (blankStart || (request && chat) ? BLANK : null)
   const typed = useTyped(shown?.markdown ?? "", !!shown?.typed)
-  const awaited = !doc && !!restored && recovered === null
+  const awaited = !opened && !!restored && recovered === null
   const fileInput = useRef<HTMLInputElement>(null)
   const folderInput = useRef<HTMLInputElement>(null)
 
@@ -238,6 +260,16 @@ export default function Home() {
     }
   }, [])
 
+  // `?f=` and `?q=` are taken out of the address once read, so that a reload does not open or ask again.
+  useEffect(() => {
+    passedInAddress()
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has("f") && !url.searchParams.has("q")) return
+    url.searchParams.delete("f")
+    url.searchParams.delete("q")
+    window.history.replaceState(window.history.state, "", url)
+  }, [])
+
   // Closing what is open goes back to the start: this page, or a new blank page where the site opens on one.
   const close = () => {
     doc?.assets.forEach((url) => URL.revokeObjectURL(url))
@@ -262,8 +294,9 @@ export default function Home() {
   )
 
   if (shown && (site === "unknown" || siteChatState === "unknown")) return null
-  // A site that opens on the blank page shows nothing until it knows whether it has a chat model to open it with.
-  if (START_BLANK && !landing && !doc && siteChatState === "unknown") return null
+  // A site that opens on the blank page — or is asked something in the address — shows nothing
+  // until it knows whether it has a chat model to open it with.
+  if ((request || (START_BLANK && !landing)) && !opened && siteChatState === "unknown") return null
 
   if (shown) {
     // One round button stands for the open page: it closes it and goes back to the start.
@@ -277,6 +310,7 @@ export default function Home() {
           classifier={classifier}
           chat={chat}
           chatInstructions={RUNS ? `${CHAT_INSTRUCTIONS} ${HERMES_INSTRUCTIONS}` : undefined}
+          chatRequest={request ?? undefined}
           chatAccessory={
             <button type="button" onClick={close} aria-label={label} title={label}>
               {blankStart ? <SquarePenIcon aria-hidden /> : <FileTextIcon aria-hidden />}

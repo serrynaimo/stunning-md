@@ -310,7 +310,8 @@ export default function Home() {
           classifier={classifier}
           chat={chat}
           chatInstructions={RUNS ? `${CHAT_INSTRUCTIONS} ${HERMES_INSTRUCTIONS}` : undefined}
-          chatRequest={request ?? undefined}
+          // Asked once a run the last page left behind has ended: there is room for one run at a time.
+          chatRequest={(left && recovered === null) || !request ? undefined : request}
           chatAccessory={
             <button type="button" onClick={close} aria-label={label} title={label}>
               {blankStart ? <SquarePenIcon aria-hidden /> : <FileTextIcon aria-hidden />}

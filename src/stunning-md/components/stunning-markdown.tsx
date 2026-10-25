@@ -35,6 +35,12 @@ export type StunningMarkdownProps = {
    */
   chatInstructions?: string
   /**
+   * A request sent to `chat` as soon as the page is open, as if the reader had
+   * typed it — one passed in the address, say. It is sent once, and again only
+   * when it changes or a different document is opened with it still given.
+   */
+  chatRequest?: string
+  /**
    * Answers the judgement calls structure cannot settle (theme, typography,
    * ambiguous tables, hero image). Without it everything is decided by rules.
    */
@@ -163,6 +169,7 @@ function Page({
   streaming = false,
   chat,
   chatInstructions,
+  chatRequest,
   chatAccessory,
   themeColor = false,
   editable = false,
@@ -219,6 +226,13 @@ function Page({
       }, 80)
     }, []),
   })
+  const { send } = session
+  const requested = useRef<string | null>(null)
+  useEffect(() => {
+    if (!chat || !chatRequest?.trim() || requested.current === chatRequest) return
+    requested.current = chatRequest
+    send(chatRequest)
+  }, [chat, chatRequest, send])
 
   // The turns on the page, top to bottom. A turn with nothing to show takes no room.
   const turns = useMemo(() => {

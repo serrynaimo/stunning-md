@@ -175,6 +175,7 @@ The open document and the conversation so far are sent to the chat model with ea
 | `classifier` | `Classify` | — | Answers judgement calls; omit for rules only. |
 | `chat` | `Chat` | — | Lets the reader ask for content; answers are laid out on the page. |
 | `chatInstructions` | `string` | — | Added to `CHAT_INSTRUCTIONS` in the chat's system prompt. |
+| `chatRequest` | `string` | — | Sent to the chat once, as soon as the page is open, as if the reader had typed it. |
 | `theme` | `Partial<ThemeChoice>` | — | Fix `palette`, `fonts` or `formality` (corner style). |
 | `autoTheme` | `boolean` | `true` | Choose a theme to suit each document and answer. `false` stays on one theme. |
 | `appearance` | `"auto" \| "light" \| "dark"` | `"auto"` | `auto` follows the system setting. |
@@ -302,6 +303,8 @@ npm run dev
 ```
 
 Samples live in `public/samples/` and open directly with `?sample=annual-report`, `kyoto`, `readme`, `essay`, `after-dark` or `roastery`. Add `&stream` — `?sample=roastery&stream` — to have the sample played out a little at a time, as a model would write it, and see the `streaming` prop at work.
+
+`?f=` opens the markdown it carries — the whole document, URL-encoded — and `?q=` sends a request to the chat as soon as the page is open; given together, the request is about that document. Both are taken out of the address once read, so a reload does not repeat them.
 
 To try the chat, add `STUNNING_MD_CHAT_URL` and `STUNNING_MD_CHAT_MODEL` (and `STUNNING_MD_CHAT_KEY` if the provider needs one) to `.env.local`. Without a model to hand, `node scripts/mock-chat.mjs` runs a stand-in that streams canned answers at `http://localhost:3490/v1/chat/completions`. With chat available, the landing page also offers to start from a blank page.
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`chatRequest`.** A request sent to the chat as soon as the page is open, as if the reader had typed it — one passed in the address, say.
+- Demo: `?f=` in the address opens the markdown it carries, and `?q=` asks the chat for something as soon as the page is open — about that document, when both are given. Both are taken out of the address once read.
+
 ## 0.2.1
 
 No prop or export was removed or renamed.

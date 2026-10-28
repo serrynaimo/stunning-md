@@ -82,23 +82,97 @@ const siteChat = createChat({ endpoint: `${BASE}/api/chat` })
 const askedForLanding = () => new URLSearchParams(window.location.search).has("open")
 const unchanging = () => () => {}
 /**
- * `?f=` in the address carries a whole markdown document to open, and `?q=` a request for the
- * chat to answer as soon as the page is open — on that document, when both are given. Read once,
- * when the page is in the browser.
+ * `?f=` in the address carries a whole markdown document to open, `?u=` the address of one, and
+ * `?q=` a request for the chat to answer as soon as the page is open — on that document, when one
+ * is given. Read once, when the page is in the browser.
  */
-type Passed = { markdown: string | null; request: string | null }
-const NOTHING_PASSED: Passed = { markdown: null, request: null }
+type Passed = { markdown: string | null; url: string | null; request: string | null }
+const NOTHING_PASSED: Passed = { markdown: null, url: null, request: null }
 let passed: Passed | undefined
 const passedInAddress = () => {
   if (passed) return passed
   const params = new URLSearchParams(window.location.search)
   const markdown = params.get("f")
-  return (passed = { markdown: markdown?.trim() ? markdown : null, request: params.get("q")?.trim() || null })
+  return (passed = { markdown: markdown?.trim() ? markdown : null, url: params.get("u")?.trim() || null, request: params.get("q")?.trim() || null })
 }
 /** A page with nothing on it yet, to chat into. */
 const BLANK: Loaded = { name: "New page", markdown: "", assets: new Map() }
+/** Stands in for the file `?u=` points at while it is read. */
+const OPENING: Loaded = { name: "Opening …", markdown: "", assets: new Map() }
 
-const normalise = (path: string) => decodeURIComponent(path).replace(/^\.?\//, "").split(/[?#]/)[0]
+const decoded = (text: string) => {
+  try {
+    return decodeURIComponent(text)
+  } catch {
+    return text
+  }
+}
+const normalise = (path: string) => decoded(path).replace(/^\.?\//, "").split(/[?#]/)[0]
+
+/** The most `?u=` reads, in bytes, and how long it waits for it, in ms. */
+const LINKED = { maxBytes: 1 << 20, timeout: 20_000 }
+/** Addresses `?u=` may read: this site's own, and any other over https. */
+const readable = (url: URL) => url.origin === window.location.origin || url.protocol === "https:"
+
+/** The text of a response, given up on once it runs past `limit` bytes. */
+async function readUpTo(response: Response, limit: number): Promise<string> {
+  const tooBig = new Error(`That file is larger than ${limit >> 20} MB.`)
+  if (Number(response.headers.get("content-length")) > limit) throw tooBig
+  const reader = response.body?.getReader()
+  if (!reader) return ""
+  const decoder = new TextDecoder()
+  let text = ""
+  let size = 0
+  for (let part = await reader.read(); !part.done; part = await reader.read()) {
+    size += part.value.byteLength
+    if (size > limit) {
+      void reader.cancel()
+      throw tooBig
+    }
+    text += decoder.decode(part.value, { stream: true })
+  }
+  return text + decoder.decode()
+}
+
+const timedOut = (failure: unknown) => failure instanceof DOMException && failure.name === "TimeoutError"
+
+/**
+ * Reads the markdown file `?u=` points at. Only a file on this site or on another over https is
+ * read — a redirect anywhere else is not used — and other sites are sent neither this site's
+ * cookies nor its address. What comes back must be text, not a web page, and no larger than
+ * `LINKED.maxBytes`. It is then laid out like any markdown: HTML in it becomes plain text,
+ * pictures and links, and nothing in it is run.
+ */
+async function fetchLinked(address: string): Promise<Loaded> {
+  let url: URL
+  try {
+    // A relative address is a file on this site: `?u=samples/kyoto.md`.
+    url = new URL(address, `${window.location.origin}${BASE}/`)
+  } catch {
+    throw new Error(`“${address}” is not an address.`)
+  }
+  if (!readable(url)) throw new Error("Only https addresses can be opened.")
+  let response: Response
+  try {
+    response = await fetch(url, { credentials: "same-origin", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(LINKED.timeout) })
+  } catch (failure) {
+    throw new Error(
+      timedOut(failure)
+        ? `${url.host} took too long to answer.`
+        : `Could not read the file from ${url.host}: the site cannot be reached, or does not let other sites read its files.`,
+    )
+  }
+  const final = new URL(response.url || url.href)
+  if (!readable(final)) throw new Error("That address led away from https.")
+  if (!response.ok) throw new Error(`${final.host} answered ${response.status} for that file.`)
+  if (/^(text\/html|application\/xhtml)/i.test(response.headers.get("content-type") ?? "")) throw new Error("That address is a web page, not a markdown file.")
+  const markdown = await readUpTo(response, LINKED.maxBytes).catch((failure: unknown) => {
+    throw timedOut(failure) ? new Error(`${final.host} took too long to send the file.`) : failure
+  })
+  if (markdown.includes("\u0000")) throw new Error("That address is not a text file.")
+  // Relative pictures and links in it point next to the file.
+  return { name: decoded(final.pathname.split("/").pop() ?? "") || final.host, markdown, base: new URL(".", final).href, assets: new Map() }
+}
 
 const INSTALL = "npm i stunning-md"
 
@@ -159,8 +233,13 @@ export default function Home() {
     () => (page === 0 && fromAddress.markdown ? { name: fromAddress.markdown.match(/^#\s+(.+)$/m)?.[1].trim() || "Document", markdown: fromAddress.markdown, assets: new Map() } : null),
     [page, fromAddress],
   )
-  const request = page === 0 ? fromAddress.request : null
-  const opened = doc ?? passedDoc
+  // The file `?u=` points at once it is read — or why it could not be, in which case its request goes unasked.
+  const [linked, setLinked] = useState<Loaded | string | null>(null)
+  const linking = page === 0 && !!fromAddress.url && !fromAddress.markdown && linked === null
+  const linkedDoc = page === 0 && linked !== null && typeof linked === "object" ? linked : null
+  const linkFailure = page === 0 && typeof linked === "string" ? linked : null
+  const request = page === 0 && !linkFailure ? fromAddress.request : null
+  const opened = doc ?? passedDoc ?? linkedDoc ?? (linking ? OPENING : null)
   const shown = opened ?? (blankStart || (request && chat) ? BLANK : null)
   const typed = useTyped(shown?.markdown ?? "", !!shown?.typed)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -222,13 +301,25 @@ export default function Home() {
     }
   }, [])
 
-  // `?f=` and `?q=` are taken out of the address once read, so that a reload does not open or ask again.
+  // `?u=` opens the markdown file at that address; `?f=`, when also given, comes first.
+  useEffect(() => {
+    const { markdown, url } = passedInAddress()
+    if (!url || markdown) return
+    let live = true
+    fetchLinked(url)
+      .then((file) => live && setLinked(file))
+      .catch((failure: Error) => live && setLinked(failure.message))
+    return () => {
+      live = false
+    }
+  }, [])
+
+  // `?f=`, `?u=` and `?q=` are taken out of the address once read, so that a reload does not open or ask again.
   useEffect(() => {
     passedInAddress()
     const url = new URL(window.location.href)
-    if (!url.searchParams.has("f") && !url.searchParams.has("q")) return
-    url.searchParams.delete("f")
-    url.searchParams.delete("q")
+    if (!["f", "u", "q"].some((name) => url.searchParams.has(name))) return
+    for (const name of ["f", "u", "q"]) url.searchParams.delete(name)
     window.history.replaceState(window.history.state, "", url)
   }, [])
 
@@ -264,10 +355,11 @@ export default function Home() {
         <StunningMarkdown
           key={page}
           markdown={typed.text}
-          streaming={typed.streaming}
+          streaming={typed.streaming || linking}
           classifier={classifier}
           chat={chat}
-          chatRequest={request ?? undefined}
+          // A request about the file `?u=` points at waits for the file.
+          chatRequest={linking ? undefined : (request ?? undefined)}
           chatAccessory={
             <button type="button" onClick={close} aria-label={label} title={label}>
               {blankStart ? <SquarePenIcon aria-hidden /> : <FileTextIcon aria-hidden />}
@@ -277,6 +369,12 @@ export default function Home() {
           themeColor
           editable
         />
+        {/* The file `?u=` points at could not be read: the page opens without it, and says why. */}
+        {linkFailure && (
+          <p role="alert" className="fixed top-[calc(4.5rem+env(safe-area-inset-top))] left-1/2 z-50 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-2xl border bg-background/90 px-4 py-2 text-sm text-destructive shadow-lg backdrop-blur">
+            {linkFailure}
+          </p>
+        )}
         {/* Without a model to ask there is no input: just the open file's name, and the way back. */}
         {!chat && (
           <div className="fixed bottom-4 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-1 rounded-full border bg-background/90 py-1 pr-1 pl-3.5 text-sm shadow-lg backdrop-blur">
@@ -381,9 +479,9 @@ export default function Home() {
               event.target.value = ""
             }}
           />
-          {error && (
+          {(error ?? linkFailure) && (
             <p role="alert" className="text-sm text-destructive">
-              {error}
+              {error ?? linkFailure}
             </p>
           )}
         </div>

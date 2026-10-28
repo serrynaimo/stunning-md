@@ -6,6 +6,7 @@
 
 - **`chatRequest`.** A request sent to the chat as soon as the page is open, as if the reader had typed it — one passed in the address, say.
 - Demo: `?f=` in the address opens the markdown it carries, and `?q=` asks the chat for something as soon as the page is open — about that document, when both are given. Both are taken out of the address once read.
+- Demo: `?u=` opens the markdown file at an address — on the same site, or another over https that allows it — fetched by the browser without cookies or referrer for other sites, refused if it is a web page, not text, or over 1 MB.
 
 ## 0.2.1
 

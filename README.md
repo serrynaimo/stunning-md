@@ -304,7 +304,9 @@ npm run dev
 
 Samples live in `public/samples/` and open directly with `?sample=annual-report`, `kyoto`, `readme`, `essay`, `after-dark` or `roastery`. Add `&stream` — `?sample=roastery&stream` — to have the sample played out a little at a time, as a model would write it, and see the `streaming` prop at work.
 
-`?f=` opens the markdown it carries — the whole document, URL-encoded — and `?q=` sends a request to the chat as soon as the page is open; given together, the request is about that document. Both are taken out of the address once read, so a reload does not repeat them.
+`?f=` opens the markdown it carries — the whole document, URL-encoded — and `?u=` the markdown file at an address, and `?q=` sends a request to the chat as soon as the page is open; given with either, the request is about that document. All three are taken out of the address once read, so a reload does not repeat them.
+
+`?u=` reads a file on the same site, or on another one over https that lets other sites read its files (raw GitHub and Gist addresses do). The browser fetches it, not the server, and sends another site neither this site's cookies nor its address with the request. A web page, a file that is not text, or one over 1 MB is refused. Relative pictures and links in it point next to the file, and like any markdown it is only laid out, never run: HTML in it becomes plain text, pictures and links.
 
 To try the chat, add `STUNNING_MD_CHAT_URL` and `STUNNING_MD_CHAT_MODEL` (and `STUNNING_MD_CHAT_KEY` if the provider needs one) to `.env.local`. Without a model to hand, `node scripts/mock-chat.mjs` runs a stand-in that streams canned answers at `http://localhost:3490/v1/chat/completions`. With chat available, the landing page also offers to start from a blank page.
 

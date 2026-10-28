@@ -176,6 +176,7 @@ The open document and the conversation so far are sent to the chat model with ea
 | `chat` | `Chat` | — | Lets the reader ask for content; answers are laid out on the page. |
 | `chatInstructions` | `string` | — | Added to `CHAT_INSTRUCTIONS` in the chat's system prompt. |
 | `chatRequest` | `string` | — | Sent to the chat once, as soon as the page is open, as if the reader had typed it. |
+| `chatRemark` | `string` | — | Shown in the conversation once, as soon as the page is open, as if the chat had said it. |
 | `theme` | `Partial<ThemeChoice>` | — | Fix `palette`, `fonts` or `formality` (corner style). |
 | `autoTheme` | `boolean` | `true` | Choose a theme to suit each document and answer. `false` stays on one theme. |
 | `appearance` | `"auto" \| "light" \| "dark"` | `"auto"` | `auto` follows the system setting. |
@@ -306,7 +307,7 @@ Samples live in `public/samples/` and open directly with `?sample=annual-report`
 
 `?f=` opens the markdown it carries — the whole document, URL-encoded — and `?u=` the markdown file at an address, and `?q=` sends a request to the chat as soon as the page is open; given with either, the request is about that document. All three are taken out of the address once read, so a reload does not repeat them.
 
-`?u=` reads a file on the same site, or on another one over https that lets other sites read its files (raw GitHub and Gist addresses do). The browser fetches it, not the server, and sends another site neither this site's cookies nor its address with the request. A web page, a file that is not text, or one over 1 MB is refused. Relative pictures and links in it point next to the file, and like any markdown it is only laid out, never run: HTML in it becomes plain text, pictures and links.
+`?u=` reads a file on the same site, or on another one over https that lets other sites read its files (raw GitHub and Gist addresses do). The browser fetches it, not the server, and sends another site neither this site's cookies nor its address with the request. A web page, a file that is not text, or one over 1 MB is refused. Relative pictures and links in it point next to the file, and like any markdown it is only laid out, never run: HTML in it becomes plain text, pictures and links. When a document from `?f=` or `?u=` cannot be opened, the page opens without it and the chat says why, in plain words; a request that came with it is not sent.
 
 To try the chat, add `STUNNING_MD_CHAT_URL` and `STUNNING_MD_CHAT_MODEL` (and `STUNNING_MD_CHAT_KEY` if the provider needs one) to `.env.local`. Without a model to hand, `node scripts/mock-chat.mjs` runs a stand-in that streams canned answers at `http://localhost:3490/v1/chat/completions`. With chat available, the landing page also offers to start from a blank page.
 

@@ -76,6 +76,20 @@ export function useChatSession(options: {
     }
   }, [])
 
+  // A remark goes into the conversation, and above the input for a while.
+  const addRemark = useCallback((id: string, text: string, failed: boolean) => {
+    setItems((all) => [...all, { id, type: "commentary", text, failed }])
+    setNotes((all) => [...all.slice(-1), { id, text }])
+    const timer = setTimeout(() => {
+      timers.current.delete(timer)
+      setNotes((all) => all.filter((note) => note.id !== id))
+    }, NOTE_LIFETIME)
+    timers.current.add(timer)
+  }, [])
+  const remarks = useRef(0)
+  /** A remark of the page's own, outside any turn. */
+  const say = useCallback((text: string) => addRemark(`r${++remarks.current}`, text, false), [addRemark])
+
   const send = useCallback(
     (text: string) => {
       const request = text.trim()
@@ -90,16 +104,7 @@ export function useChatSession(options: {
       let vacated = false
 
       const patch = (change: Partial<ChatTurn>) => setTurns((all) => all.map((turn) => (turn.id === turnId ? { ...turn, ...change } : turn)))
-      const remark = (remarkText: string, failed = false) => {
-        const id = `${turnId}-c${++sequence}`
-        setItems((all) => [...all, { id, type: "commentary", text: remarkText, failed }])
-        setNotes((all) => [...all.slice(-1), { id, text: remarkText }])
-        const timer = setTimeout(() => {
-          timers.current.delete(timer)
-          setNotes((all) => all.filter((note) => note.id !== id))
-        }, NOTE_LIFETIME)
-        timers.current.add(timer)
-      }
+      const remark = (remarkText: string, failed = false) => addRemark(`${turnId}-c${++sequence}`, remarkText, failed)
 
       // Room is made on the page once the message is known to ask for something —
       // or the answer shows that it did. Small talk never gets any.
@@ -185,10 +190,10 @@ export function useChatSession(options: {
           setBusy(false)
         })
     },
-    [chat, classifier, document, instructions, onTurnStart, onTurnEmpty],
+    [chat, classifier, document, instructions, onTurnStart, onTurnEmpty, addRemark],
   )
 
   const stop = useCallback(() => abort.current?.abort(), [])
 
-  return { turns, items, notes, busy, send, stop }
+  return { turns, items, notes, busy, send, say, stop }
 }

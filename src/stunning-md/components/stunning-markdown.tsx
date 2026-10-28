@@ -41,6 +41,12 @@ export type StunningMarkdownProps = {
    */
   chatRequest?: string
   /**
+   * A remark shown in the conversation as soon as the page is open, as if the
+   * chat had made it — why a document could not be opened, say. Shown once, and
+   * again only when it changes or a different document is opened with it still given.
+   */
+  chatRemark?: string
+  /**
    * Answers the judgement calls structure cannot settle (theme, typography,
    * ambiguous tables, hero image). Without it everything is decided by rules.
    */
@@ -170,6 +176,7 @@ function Page({
   chat,
   chatInstructions,
   chatRequest,
+  chatRemark,
   chatAccessory,
   themeColor = false,
   editable = false,
@@ -226,13 +233,19 @@ function Page({
       }, 80)
     }, []),
   })
-  const { send } = session
+  const { send, say } = session
   const requested = useRef<string | null>(null)
   useEffect(() => {
     if (!chat || !chatRequest?.trim() || requested.current === chatRequest) return
     requested.current = chatRequest
     send(chatRequest)
   }, [chat, chatRequest, send])
+  const remarked = useRef<string | null>(null)
+  useEffect(() => {
+    if (!chat || !chatRemark?.trim() || remarked.current === chatRemark) return
+    remarked.current = chatRemark
+    say(chatRemark)
+  }, [chat, chatRemark, say])
 
   // The turns on the page, top to bottom. A turn with nothing to show takes no room.
   const turns = useMemo(() => {

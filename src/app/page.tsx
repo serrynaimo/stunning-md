@@ -4,7 +4,7 @@ import { ArrowRightIcon, ArrowUpRightIcon, CheckIcon, CopyIcon, FileTextIcon, Fo
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { chatCompletionsUrl, createChat, createClassifier, StunningMarkdown } from "@/stunning-md"
+import { chatCompletionsUrl, createChat, createClassifier, parseMarkdown, StunningMarkdown } from "@/stunning-md"
 import { OwnChatForm, useOwnChat } from "./own-chat"
 import { OwnClassifierForm, useOwnClassifier } from "./own-classifier"
 
@@ -116,7 +116,7 @@ const readable = (url: URL) => url.origin === window.location.origin || url.prot
 
 /** The text of a response, given up on once it runs past `limit` bytes. */
 async function readUpTo(response: Response, limit: number): Promise<string> {
-  const tooBig = new Error(`That file is larger than ${limit >> 20} MB.`)
+  const tooBig = new Error(`That file is too large to open here; the limit is ${limit >> 20} MB.`)
   if (Number(response.headers.get("content-length")) > limit) throw tooBig
   const reader = response.body?.getReader()
   if (!reader) return ""
@@ -137,11 +137,30 @@ async function readUpTo(response: Response, limit: number): Promise<string> {
 const timedOut = (failure: unknown) => failure instanceof DOMException && failure.name === "TimeoutError"
 
 /**
+ * A line opening more quotes and lists than anyone writes — `> > > …` fifty deep. The parser
+ * would crawl through such a document for seconds, holding up the page, before giving up on it.
+ */
+const TOO_DEEP = /^(?:[ \t]*(?:>[ \t]*|(?:[-*+]|\d{1,9}[.)])[ \t]+)){50}/m
+
+/** Why a document cannot be laid out — nesting too deep to follow, say — or null when it can. */
+function unparsable(markdown: string): string | null {
+  const failed = "Something in that document couldn't be laid out, so it wasn't opened."
+  if (TOO_DEEP.test(markdown)) return failed
+  try {
+    parseMarkdown(markdown)
+    return null
+  } catch {
+    return failed
+  }
+}
+
+/**
  * Reads the markdown file `?u=` points at. Only a file on this site or on another over https is
  * read — a redirect anywhere else is not used — and other sites are sent neither this site's
  * cookies nor its address. What comes back must be text, not a web page, and no larger than
  * `LINKED.maxBytes`. It is then laid out like any markdown: HTML in it becomes plain text,
- * pictures and links, and nothing in it is run.
+ * pictures and links, and nothing in it is run. Whatever goes wrong is told in plain words,
+ * for the reader rather than a developer.
  */
 async function fetchLinked(address: string): Promise<Loaded> {
   let url: URL
@@ -149,27 +168,40 @@ async function fetchLinked(address: string): Promise<Loaded> {
     // A relative address is a file on this site: `?u=samples/kyoto.md`.
     url = new URL(address, `${window.location.origin}${BASE}/`)
   } catch {
-    throw new Error(`“${address}” is not an address.`)
+    throw new Error("That link couldn't be opened: it isn't a web address.")
   }
-  if (!readable(url)) throw new Error("Only https addresses can be opened.")
+  if (!readable(url)) throw new Error("Only links that start with https:// can be opened here.")
+  // A file on GitHub has a page of its own; the file itself is behind the page's Raw button.
+  const rawTip = url.hostname === "github.com" ? " For a file on GitHub, use the link behind its Raw button." : ""
   let response: Response
   try {
     response = await fetch(url, { credentials: "same-origin", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(LINKED.timeout) })
   } catch (failure) {
     throw new Error(
       timedOut(failure)
-        ? `${url.host} took too long to answer.`
-        : `Could not read the file from ${url.host}: the site cannot be reached, or does not let other sites read its files.`,
+        ? "That file's site took too long to answer."
+        : `That file couldn't be reached. Its site may be down, or it may not let other sites read its files.${rawTip}`,
     )
   }
   const final = new URL(response.url || url.href)
-  if (!readable(final)) throw new Error("That address led away from https.")
-  if (!response.ok) throw new Error(`${final.host} answered ${response.status} for that file.`)
-  if (/^(text\/html|application\/xhtml)/i.test(response.headers.get("content-type") ?? "")) throw new Error("That address is a web page, not a markdown file.")
+  if (!readable(final)) throw new Error("That link led on to an address that isn't secure, so it wasn't opened.")
+  if (!response.ok) {
+    const { status } = response
+    throw new Error(
+      status === 404 || status === 410
+        ? "There's no file at that link."
+        : status === 401 || status === 403
+          ? "That file is private, so it couldn't be opened."
+          : "That file's site couldn't send it just now.",
+    )
+  }
+  if (/^(text\/html|application\/xhtml)/i.test(response.headers.get("content-type") ?? "")) throw new Error(`That link leads to a web page, not a markdown file.${rawTip}`)
   const markdown = await readUpTo(response, LINKED.maxBytes).catch((failure: unknown) => {
-    throw timedOut(failure) ? new Error(`${final.host} took too long to send the file.`) : failure
+    throw timedOut(failure) ? new Error("That file's site took too long to send it.") : failure
   })
-  if (markdown.includes("\u0000")) throw new Error("That address is not a text file.")
+  if (markdown.includes("\u0000")) throw new Error("That link leads to a file that isn't text.")
+  const unreadable = unparsable(markdown)
+  if (unreadable) throw new Error(unreadable)
   // Relative pictures and links in it point next to the file.
   return { name: decoded(final.pathname.split("/").pop() ?? "") || final.host, markdown, base: new URL(".", final).href, assets: new Map() }
 }
@@ -229,18 +261,24 @@ export default function Home() {
   const [page, setPage] = useState(0)
   // What the address passed belongs to the first page: closing that one starts over without it.
   const fromAddress = useSyncExternalStore(unchanging, passedInAddress, () => NOTHING_PASSED)
-  const passedDoc = useMemo<Loaded | null>(
-    () => (page === 0 && fromAddress.markdown ? { name: fromAddress.markdown.match(/^#\s+(.+)$/m)?.[1].trim() || "Document", markdown: fromAddress.markdown, assets: new Map() } : null),
-    [page, fromAddress],
-  )
-  // The file `?u=` points at once it is read — or why it could not be, in which case its request goes unasked.
+  // The document `?f=` carries — or why it cannot be laid out.
+  const passed = useMemo<Loaded | string | null>(() => {
+    const markdown = page === 0 ? fromAddress.markdown : null
+    if (!markdown) return null
+    return unparsable(markdown) ?? { name: markdown.match(/^#\s+(.+)$/m)?.[1].trim() || "Document", markdown, assets: new Map() }
+  }, [page, fromAddress])
+  // The file `?u=` points at once it is read — or why it could not be.
   const [linked, setLinked] = useState<Loaded | string | null>(null)
   const linking = page === 0 && !!fromAddress.url && !fromAddress.markdown && linked === null
+  const passedDoc = typeof passed === "string" ? null : passed
   const linkedDoc = page === 0 && linked !== null && typeof linked === "object" ? linked : null
-  const linkFailure = page === 0 && typeof linked === "string" ? linked : null
-  const request = page === 0 && !linkFailure ? fromAddress.request : null
+  // Why the document the address passed could not be opened. The page opens without it and says so —
+  // in the chat when it has one — and a request that came with it goes unasked.
+  const unopened = typeof passed === "string" ? passed : page === 0 && typeof linked === "string" ? linked : null
+  const remark = unopened && fromAddress.request ? `${unopened} The question that came with it wasn't asked.` : unopened
+  const request = page === 0 && !unopened ? fromAddress.request : null
   const opened = doc ?? passedDoc ?? linkedDoc ?? (linking ? OPENING : null)
-  const shown = opened ?? (blankStart || (request && chat) ? BLANK : null)
+  const shown = opened ?? (blankStart || ((request || unopened) && chat) ? BLANK : null)
   const typed = useTyped(shown?.markdown ?? "", !!shown?.typed)
   const fileInput = useRef<HTMLInputElement>(null)
   const folderInput = useRef<HTMLInputElement>(null)
@@ -360,6 +398,7 @@ export default function Home() {
           chat={chat}
           // A request about the file `?u=` points at waits for the file.
           chatRequest={linking ? undefined : (request ?? undefined)}
+          chatRemark={remark ?? undefined}
           chatAccessory={
             <button type="button" onClick={close} aria-label={label} title={label}>
               {blankStart ? <SquarePenIcon aria-hidden /> : <FileTextIcon aria-hidden />}
@@ -369,12 +408,6 @@ export default function Home() {
           themeColor
           editable
         />
-        {/* The file `?u=` points at could not be read: the page opens without it, and says why. */}
-        {linkFailure && (
-          <p role="alert" className="fixed top-[calc(4.5rem+env(safe-area-inset-top))] left-1/2 z-50 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-2xl border bg-background/90 px-4 py-2 text-sm text-destructive shadow-lg backdrop-blur">
-            {linkFailure}
-          </p>
-        )}
         {/* Without a model to ask there is no input: just the open file's name, and the way back. */}
         {!chat && (
           <div className="fixed bottom-4 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-1 rounded-full border bg-background/90 py-1 pr-1 pl-3.5 text-sm shadow-lg backdrop-blur">
@@ -479,9 +512,9 @@ export default function Home() {
               event.target.value = ""
             }}
           />
-          {(error ?? linkFailure) && (
+          {(error ?? unopened) && (
             <p role="alert" className="text-sm text-destructive">
-              {error ?? linkFailure}
+              {error ?? unopened}
             </p>
           )}
         </div>

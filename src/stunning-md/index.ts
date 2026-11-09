@@ -1,4 +1,4 @@
-export { StunningMarkdown, type StunningMarkdownProps } from "./components/stunning-markdown"
+export { StunningMarkdown, type StunningMarkdownProps, type PageContent } from "./components/stunning-markdown"
 export { createChat, chatCompletionsUrl, sortReply, settledMarkdown, wantsContent, BlockSplitter, CHAT_INSTRUCTIONS, chatSystemPrompt, type Chat, type ChatMessage, type TurnEvent, type TurnResult, type ReplyBlock } from "./chat"
 
 // The analysis pipeline is plain functions, usable without React.

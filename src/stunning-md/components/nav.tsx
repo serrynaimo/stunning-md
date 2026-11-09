@@ -187,6 +187,7 @@ export function Nav({
   contents,
   root,
   bar,
+  accessory,
   sidebar,
   menu,
   view,
@@ -221,6 +222,8 @@ export function Nav({
   } | null
   root: React.RefObject<HTMLElement | null>
   bar: React.RefObject<HTMLDivElement | null>
+  /** The host's own controls, before the bar's. */
+  accessory?: React.ReactNode
   sidebar: SidebarState
   /** Whether the contents sheet is open, on screens too narrow for the sidebar. */
   menu: { open: boolean; onOpenChange: (open: boolean) => void }
@@ -234,7 +237,7 @@ export function Nav({
 }) {
   const { portal, theme, appearance, controls } = useStunning()
 
-  if (!contents && !controls) return null
+  if (!contents && !controls && !accessory) return null
 
   return (
     <nav className="smd-nav" aria-label="Document">
@@ -260,6 +263,7 @@ export function Nav({
           </span>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          {accessory}
           {controls && <ViewSwitch view={view} onView={onView} />}
           {controls && (
             <DropdownMenu>

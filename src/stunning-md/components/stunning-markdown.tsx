@@ -86,6 +86,11 @@ export type StunningMarkdownProps = {
    */
   chatAccessory?: React.ReactNode
   /**
+   * Controls of your own for the top bar — a save or share button, say — shown
+   * before the page's own. Given what the page shows, as one markdown document.
+   */
+  barAccessory?: (page: PageContent) => React.ReactNode
+  /**
    * Give the browser's own surfaces the colour of the page: `<meta name="theme-color">`
    * and the document's background follow the theme, so a phone's status bar, its
    * toolbar and the space past the ends of the page match. For when the component
@@ -95,6 +100,18 @@ export type StunningMarkdownProps = {
   className?: string
   /** Called whenever the plan or theme changes — useful for debugging and tooling. */
   onPlan?: (plan: DocumentPlan, theme: ThemeChoice) => void
+}
+
+/** What the page shows, for the controls `barAccessory` puts in the top bar. */
+export type PageContent = {
+  /** Everything on the page as one markdown document: the opened document, then each answer below it. */
+  markdown: string
+  /** The title of the first part that has one, or "". */
+  title: string
+  /** A document or an answer is still being written, so the page is not finished. */
+  busy: boolean
+  /** For a popup of your own: the class and style that give it the page's look, as the theme menu has. */
+  portal: { className: string; style: React.CSSProperties }
 }
 
 const identity = (url: string) => url
@@ -178,6 +195,7 @@ function Page({
   chatRequest,
   chatRemark,
   chatAccessory,
+  barAccessory,
   themeColor = false,
   editable = false,
   onMarkdownChange,
@@ -381,6 +399,19 @@ function Page({
     return null
   }, [turns, reports, position.active])
 
+  // The page as one document, for the host's own controls in the bar. Each answer was written to follow
+  // what is above it; only the first part may open with frontmatter.
+  const content = useMemo<PageContent | null>(() => {
+    if (!barAccessory) return null
+    const parts = turns.map((turn) => (turn.id === DOCUMENT ? markdown : turn.markdown)).filter((part) => part.trim())
+    return {
+      markdown: parts.map((part, index) => (index ? part.replace(FRONTMATTER, "") : part).trim()).join("\n\n") + (parts.length ? "\n" : ""),
+      title: turns.map((turn) => reports[turn.id]?.plan.hero.titleText).find(Boolean) ?? "",
+      busy: streaming || session.busy,
+      portal: context.portal,
+    }
+  }, [barAccessory, turns, markdown, reports, streaming, session.busy, context.portal])
+
   // The document is laid out under a loader until its top has settled; a blank page has nothing to wait for.
   const ready = !hasDocument || documentReady || streamed
   const markReady = useCallback(() => setDocumentReady(true), [])
@@ -397,6 +428,7 @@ function Page({
       }
       root={root}
       bar={position.bar}
+      accessory={barAccessory && content ? barAccessory(content) : undefined}
       sidebar={sidebar}
       menu={menu}
       view={view}

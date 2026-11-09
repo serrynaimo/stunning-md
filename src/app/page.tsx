@@ -8,6 +8,7 @@ import { CHAT_INSTRUCTIONS, chatCompletionsUrl, createChat, createClassifier, pa
 import { createRunChat, forgetRun, HERMES_INSTRUCTIONS, settled, storedRun, withMedia, type StoredRun } from "./hermes"
 import { OwnChatForm, useOwnChat } from "./own-chat"
 import { OwnClassifierForm, useOwnClassifier } from "./own-classifier"
+import { SavePage, useCanSave } from "./save-page"
 
 const SAMPLES = [
   { id: "annual-report", title: "Annual report", note: "Figures, time series, shares, a timeline" },
@@ -320,6 +321,7 @@ export default function Home() {
   const awaited = !opened && !!restored && recovered === null
   const fileInput = useRef<HTMLInputElement>(null)
   const folderInput = useRef<HTMLInputElement>(null)
+  const canSave = useCanSave()
 
   const loadSample = useCallback(async (id: string) => {
     const response = await fetch(`${BASE}/samples/${id}.md`)
@@ -448,6 +450,7 @@ export default function Home() {
               {blankStart ? <SquarePenIcon aria-hidden /> : <FileTextIcon aria-hidden />}
             </button>
           }
+          barAccessory={canSave ? (content) => <SavePage page={content} /> : undefined}
           resolveUrl={resolveUrl}
           themeColor
           editable

@@ -222,7 +222,7 @@ export function Nav({
   } | null
   root: React.RefObject<HTMLElement | null>
   bar: React.RefObject<HTMLDivElement | null>
-  /** The host's own controls, before the bar's. */
+  /** The host's own controls, right after the title; not shown while there is no title. */
   accessory?: React.ReactNode
   sidebar: SidebarState
   /** Whether the contents sheet is open, on screens too narrow for the sidebar. */
@@ -237,7 +237,7 @@ export function Nav({
 }) {
   const { portal, theme, appearance, controls } = useStunning()
 
-  if (!contents && !controls && !accessory) return null
+  if (!contents && !controls && !(title && accessory)) return null
 
   return (
     <nav className="smd-nav" aria-label="Document">
@@ -256,6 +256,8 @@ export function Nav({
             {title}
           </a>
         )}
+        {/* Right after the title, where it stays put while the section beside it changes; no title, no controls. */}
+        {title && accessory && <div className="flex shrink-0 items-center">{accessory}</div>}
         {crumb && (
           <span className={cn("min-w-0 truncate text-sm text-muted-foreground", title && "hidden sm:inline")} aria-hidden>
             {title && <span className="mx-1.5 opacity-50">/</span>}
@@ -263,7 +265,6 @@ export function Nav({
           </span>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
-          {accessory}
           {controls && <ViewSwitch view={view} onView={onView} />}
           {controls && (
             <DropdownMenu>

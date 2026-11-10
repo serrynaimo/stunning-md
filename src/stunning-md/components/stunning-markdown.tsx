@@ -87,7 +87,8 @@ export type StunningMarkdownProps = {
   chatAccessory?: React.ReactNode
   /**
    * Controls of your own for the top bar — a save or share button, say — shown
-   * before the page's own. Given what the page shows, as one markdown document.
+   * right after the page's title, and only while there is one. Given what the page
+   * shows, as one markdown document.
    */
   barAccessory?: (page: PageContent) => React.ReactNode
   /**

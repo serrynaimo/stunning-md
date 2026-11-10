@@ -18,18 +18,6 @@ import type { Chat, ChatMessage } from "@/stunning-md"
  * put the site to sleep.
  */
 
-/**
- * Added to the library's instructions for this agent: how to come by real pictures quickly.
- * Its image_search tool answers in a second or two; left to itself it either shows none or searches for minutes.
- */
-export const HERMES_INSTRUCTIONS = [
-  "Do the work yourself in this turn: no kanban task and no delegation, because a result delivered later never reaches this page.",
-  "Link sources inline, where the fact is stated, and never invent an address.",
-  "When the request is about public information and its subject can be seen, show pictures: before writing, call image_search once with every subject.",
-  "Never search pictures for private or personal matters.",
-  "Only a landscape picture at least 1600 wide can be the banner; put each other one on its own line under its `##` heading.",
-].join(" ")
-
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
 const RUNS = `${BASE}/api/runs`
 const NOTIFY = process.env.NEXT_PUBLIC_NOTIFY === "1"
@@ -190,15 +178,18 @@ export function remainder(said: string, whole: string): string {
 
 /**
  * What the agent generates — a picture, a video, speech — it names as `MEDIA:<file on its machine>`,
- * which a messenger turns into an attachment. Here the host copies such a file into the site's
- * `media` folder under its own name, so the tag becomes a picture or a player.
+ * which a messenger turns into an attachment. With `NEXT_PUBLIC_CHAT_MEDIA=<folder>` the host copies
+ * such a file into that folder of the site under its own name, so the tag becomes a picture or a
+ * player. Without it the tags are left as the agent wrote them.
  */
 const MEDIA_PATH = String.raw`[\`"'*_]{0,3}MEDIA:\s*[\`"']?(?:[A-Za-z]:[\\/]|~?\/)[^\n\`"']*?([^\\/\n\`"']+\.(?:png|jpe?g|webp|gif|mp4|webm|mov|mp3|wav|ogg|m4a|opus))[\`"']?[\`"'*_]{0,3}`
 /** The tag, and around it the image or link the agent sometimes writes it into: `![what it shows](MEDIA:…)`. */
 const MEDIA_TAG = new RegExp(String.raw`(?:!?\[([^\]\n]*)\]\(\s*)?${MEDIA_PATH}(?:\s*\))?`, "gi")
-const MEDIA = `${BASE}/media`
+const MEDIA_FOLDER = (process.env.NEXT_PUBLIC_CHAT_MEDIA ?? "").replace(/^\/+|\/+$/g, "")
+const MEDIA = MEDIA_FOLDER ? `${BASE}/${MEDIA_FOLDER}` : null
 
 export function withMedia(text: string): string {
+  if (!MEDIA) return text
   return text.replace(MEDIA_TAG, (_tag, alt: string | undefined, name: string) => {
     const address = `${MEDIA}/${encodeURIComponent(name)}`
     // Written as an image whatever it is: the page plays a film or a recording where a picture would stand.
@@ -211,6 +202,7 @@ export function withMedia(text: string): string {
  * arrived here: wait for the copy, or the page would ask for a picture that is not there yet.
  */
 async function arrived(text: string, signal?: AbortSignal): Promise<void> {
+  if (!MEDIA || !text.includes(MEDIA)) return
   const addresses = [...text.matchAll(/!\[\]\(([^)]+)\)/g)].map((m) => m[1]).filter((a) => a.startsWith(`${MEDIA}/`))
   for (const address of addresses) {
     for (let tries = 0; tries < 40 && !signal?.aborted; tries++) {
@@ -223,6 +215,7 @@ async function arrived(text: string, signal?: AbortSignal): Promise<void> {
 
 /** Where a tag may still be arriving: from here on the text is held back until its line is complete. */
 function openTag(text: string): number {
+  if (!MEDIA) return text.length
   const line = text.lastIndexOf("\n") + 1
   const last = text.slice(line)
   // The line names a file, or opens an image or a link that may yet turn out to hold one, or ends in the tag's first letters.
@@ -260,7 +253,7 @@ async function* turn(messages: ChatMessage[], signal?: AbortSignal): AsyncGenera
           const cut = openTag(held)
           const ready = withMedia(held.slice(0, cut))
           held = held.slice(cut)
-          if (ready.includes(MEDIA)) await arrived(ready, signal)
+          await arrived(ready, signal)
           if (ready) yield ready
         } else if (event.event?.startsWith("run.") && ENDED.has(event.event.slice(4))) {
           end = { status: event.event.slice(4), output: typeof event.output === "string" ? event.output : undefined, error: typeof event.error === "string" ? event.error : undefined }
@@ -275,7 +268,7 @@ async function* turn(messages: ChatMessage[], signal?: AbortSignal): AsyncGenera
     if (end.status === "failed") throw new Error(end.error || "the request failed")
     if (end.status !== "completed" && !said) throw new Error(`the request was ${end.status}`)
     const rest = withMedia(held + remainder(said, end.output ?? ""))
-    if (rest.includes(MEDIA)) await arrived(rest, signal)
+    await arrived(rest, signal)
     if (rest) yield rest
   } finally {
     clearInterval(reminder)

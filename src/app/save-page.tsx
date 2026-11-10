@@ -127,16 +127,8 @@ export function SavePage({ page }: { page: PageContent }) {
     setOpen(true)
   }
 
-  const passwordProblem =
-    protect && !password
-      ? "Choose a password."
-      : protect && password !== password.trim()
-        ? "A password can't start or end with a space."
-        : protect && user.includes(":")
-          ? "A user name can't contain a colon."
-          : protect && !user.trim() && (password.includes(":") || password.startsWith("#"))
-            ? "A password with a colon, or starting with #, needs a user name."
-            : null
+  // What else a login may not be is the host's to say: its answer to the save is shown as it gives it.
+  const passwordProblem = protect && !password ? "Choose a password." : null
   const ready = valid && (check.state === "free" || check.state === "unknown") && !passwordProblem && !saving
 
   const save = async (event: React.FormEvent) => {

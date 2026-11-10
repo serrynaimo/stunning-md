@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { CHAT_INSTRUCTIONS, chatCompletionsUrl, createChat, createClassifier, parseMarkdown, sortReply, StunningMarkdown } from "@/stunning-md"
-import { createRunChat, forgetRun, HERMES_INSTRUCTIONS, settled, storedRun, withMedia, type StoredRun } from "./hermes"
+import { createRunChat, forgetRun, settled, storedRun, withMedia, type StoredRun } from "./hermes"
 import { OwnChatForm, useOwnChat } from "./own-chat"
 import { OwnClassifierForm, useOwnClassifier } from "./own-classifier"
 import { SavePage, useCanSave } from "./save-page"
@@ -85,6 +85,11 @@ const siteClassifier = createClassifier({ endpoint: `${BASE}/api/classify` })
 const RUNS = process.env.NEXT_PUBLIC_CHAT_RUNS === "1"
 /** This site's own chat model, reached the same way. */
 const siteChat = RUNS ? createRunChat() : createChat({ endpoint: `${BASE}/api/chat` })
+/**
+ * `NEXT_PUBLIC_CHAT_INSTRUCTIONS`: what this site's agent is told beyond the library's own
+ * instructions, such as how it comes by pictures. Without it the library's are used as they are.
+ */
+const SITE_INSTRUCTIONS = process.env.NEXT_PUBLIC_CHAT_INSTRUCTIONS?.trim()
 /** The run the last page did not live to see the end of — read once, when the page is in the browser. */
 let leftBehind: StoredRun | null | undefined
 const runLeftBehind = () => (leftBehind === undefined ? (leftBehind = RUNS ? storedRun() : null) : leftBehind)
@@ -440,7 +445,7 @@ export default function Home() {
           streaming={typed.streaming || awaited || linking}
           classifier={classifier}
           chat={chat}
-          chatInstructions={RUNS ? `${CHAT_INSTRUCTIONS} ${HERMES_INSTRUCTIONS}` : undefined}
+          chatInstructions={SITE_INSTRUCTIONS ? `${CHAT_INSTRUCTIONS} ${SITE_INSTRUCTIONS}` : undefined}
           // Asked once the file `?u=` points at is read, and once a run the last page left behind
           // has ended: there is room for one run at a time.
           chatRequest={linking || (left && recovered === null) || !request ? undefined : request}

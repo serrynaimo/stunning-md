@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-import type { PageContent } from "@/stunning-md"
+import { themes, type PageContent } from "@/stunning-md"
 
 /**
  * `NEXT_PUBLIC_SAVE=1`: the host answers `<base>/api/save`, where the page can be saved as a folder
@@ -56,7 +56,21 @@ function folderFor(title: string): string {
 /** Typing "My Report" gives "my-report": the name is shown as it will be. */
 const asFolder = (typed: string) => typed.toLowerCase().replace(/[\s_]+/g, "-").replace(/[^a-z0-9-]/g, "")
 
-type Check = { state: "checking" | "free" | "invalid" | "unknown" } | { state: "taken"; free: string | null }
+/** A frontmatter block opening a document. */
+const FRONTMATTER = /^---[ \t]*\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/
+
+/**
+ * The document kept to one theme: `theme:` in its frontmatter, which the page it is published as
+ * goes by. Other frontmatter stays as it was; a `theme:` already there gives way.
+ */
+function withTheme(markdown: string, theme: string): string {
+  const block = markdown.match(FRONTMATTER)
+  if (!block) return `---\ntheme: ${theme}\n---\n\n${markdown}`
+  const rest = block[1].split(/\r?\n/).filter((line) => !/^theme\s*:/.test(line))
+  return `---\n${[...rest, `theme: ${theme}`].join("\n")}\n---\n${markdown.slice(block[0].length)}`
+}
+
+type Check ={ state: "checking" | "free" | "invalid" | "unknown" } | { state: "taken"; free: string | null }
 
 /** The host's message, as a sentence. */
 const sentence = (text: string) => (text ? `${text[0].toUpperCase()}${text.slice(1)}.` : "")
@@ -134,7 +148,7 @@ export function SavePage({ page }: { page: PageContent }) {
       const response = await fetch(ENDPOINT, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ folder, markdown: page.markdown, ...(protect ? { user: user.trim(), password } : {}) }),
+        body: JSON.stringify({ folder, markdown: withTheme(page.markdown, page.theme), ...(protect ? { user: user.trim(), password } : {}) }),
       })
       const answer = (await response.json().catch(() => ({}))) as { path?: string; error?: string; free?: string }
       if (response.ok && answer.path) {
@@ -218,7 +232,9 @@ export function SavePage({ page }: { page: PageContent }) {
             <form onSubmit={save} className="contents">
               <DialogHeader>
                 <DialogTitle>Save as a page</DialogTitle>
-                <DialogDescription>Everything on this page becomes a page of its own on {site || "this site"}.</DialogDescription>
+                <DialogDescription>
+                  Everything on this page becomes a page of its own on {site || "this site"}, in the {themes[page.theme]?.name ?? page.theme} theme.
+                </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="save-folder">Folder</Label>

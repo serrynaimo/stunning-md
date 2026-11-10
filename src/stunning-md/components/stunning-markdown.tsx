@@ -112,6 +112,11 @@ export type PageContent = {
   /** A document or an answer is still being written, so the page is not finished. */
   busy: boolean
   /**
+   * The theme the page wears now — the reader's pick, or the one chosen for the part being read.
+   * `theme: <id>` in a document's frontmatter keeps it to that theme.
+   */
+  theme: PaletteId
+  /**
    * For a popup of your own: the class and style that give it the sidebar's look — the
    * conversation's plain one with a chat, the page's otherwise — as the contents sheet has.
    */
@@ -412,9 +417,10 @@ function Page({
       markdown: parts.map((part, index) => (index ? part.replace(FRONTMATTER, "") : part).trim()).join("\n\n") + (parts.length ? "\n" : ""),
       title: turns.map((turn) => reports[turn.id]?.plan.hero.titleText).find(Boolean) ?? "",
       busy: streaming || session.busy,
+      theme: theme.palette,
       portal: { className: context.portal.className, style: chatStyle ?? context.portal.style },
     }
-  }, [barAccessory, turns, markdown, reports, streaming, session.busy, context.portal, chatStyle])
+  }, [barAccessory, turns, markdown, reports, streaming, session.busy, theme.palette, context.portal, chatStyle])
 
   // The document is laid out under a loader until its top has settled; a blank page has nothing to wait for.
   const ready = !hasDocument || documentReady || streamed

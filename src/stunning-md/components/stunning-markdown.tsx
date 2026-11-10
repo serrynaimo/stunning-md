@@ -111,7 +111,10 @@ export type PageContent = {
   title: string
   /** A document or an answer is still being written, so the page is not finished. */
   busy: boolean
-  /** For a popup of your own: the class and style that give it the page's look, as the theme menu has. */
+  /**
+   * For a popup of your own: the class and style that give it the sidebar's look — the
+   * conversation's plain one with a chat, the page's otherwise — as the contents sheet has.
+   */
   portal: { className: string; style: React.CSSProperties }
 }
 
@@ -409,9 +412,9 @@ function Page({
       markdown: parts.map((part, index) => (index ? part.replace(FRONTMATTER, "") : part).trim()).join("\n\n") + (parts.length ? "\n" : ""),
       title: turns.map((turn) => reports[turn.id]?.plan.hero.titleText).find(Boolean) ?? "",
       busy: streaming || session.busy,
-      portal: context.portal,
+      portal: { className: context.portal.className, style: chatStyle ?? context.portal.style },
     }
-  }, [barAccessory, turns, markdown, reports, streaming, session.busy, context.portal])
+  }, [barAccessory, turns, markdown, reports, streaming, session.busy, context.portal, chatStyle])
 
   // The document is laid out under a loader until its top has settled; a blank page has nothing to wait for.
   const ready = !hasDocument || documentReady || streamed

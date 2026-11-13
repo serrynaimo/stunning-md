@@ -213,6 +213,8 @@ function Page({
   const themeBasis = !streaming || markdown.replace(FRONTMATTER, "").trim().length >= OPENING_LENGTH ? markdown : null
 
   const hasDocument = streaming || markdown.trim().length > 0
+  // Whether the reader has opened or closed the sidebar themselves (see `sidebarWanted`).
+  const [sidebarPick, setSidebarPick] = useState<boolean | null>(null)
   // Where the reader was before a turn took them to its place on the page.
   const before = useRef(0)
   const session = useChatSession({
@@ -232,6 +234,8 @@ function Page({
         window.scrollTo({ top: before.current, behavior: reduce ? "auto" : "smooth" })
       }, 80)
     }, []),
+    // The reply will only be in the conversation, so the conversation is shown — even if the reader had closed it.
+    onTurnAside: useCallback(() => setSidebarPick(true), []),
   })
   const { send, say } = session
   const requested = useRef<string | null>(null)
@@ -338,8 +342,8 @@ function Page({
   const wide = useWide(root, SIDEBAR_MIN_WIDTH)
   // A document's contents are open from the start. A conversation stays out of the
   // way until there is something in it: it opens when the first reply starts to
-  // arrive. Either way, the reader's own choice then stands.
-  const [sidebarPick, setSidebarPick] = useState<boolean | null>(null)
+  // arrive. Either way, the reader's own choice then stands — until a reply that
+  // has no place on the page opens it again, since that is the only place to read it.
   const replied = session.items.some((item) => item.type !== "user")
   const sidebarWanted = sidebarPick ?? (chat ? replied : true)
   const sidebarId = useId()

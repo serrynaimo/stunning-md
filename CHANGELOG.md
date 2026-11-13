@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.2
+
+No prop or export was removed or renamed.
 
 ### Added
 
@@ -8,6 +10,10 @@
 - **`chatRemark`.** A remark shown in the conversation as soon as the page is open, as if the chat had made it — why a document could not be opened, say.
 - Demo: `?f=` in the address opens the markdown it carries, and `?q=` asks the chat for something as soon as the page is open — about that document, when both are given. Both are taken out of the address once read.
 - Demo: `?u=` opens the markdown file at an address — on the same site, or another over https that allows it — fetched by the browser without cookies or referrer for other sites, refused if it is a web page, not text, or over 1 MB. A document from `?f=` or `?u=` that cannot be opened is explained in the chat, in plain words.
+
+### Fixed
+
+- **Replies that only go to the conversation.** A message judged to be small talk, or a reply with nothing for the page, put its answer in the sidebar only, which stayed shut if the reader had closed it; the answer was shown above the input for a few seconds and then could only be found by opening the sidebar. Such a reply now opens the sidebar. Where there is no room for one, it is still shown above the input. Stopping a reply does not open the sidebar.
 
 ## 0.2.1
 

@@ -56,8 +56,13 @@ export function useChatSession(options: {
   onTurnStart?: (turnId: string) => void
   /** A turn turned out to have nothing for the page; its place is given up. */
   onTurnEmpty?: (turnId: string) => void
+  /**
+   * A turn's reply belongs to the conversation alone: the message was judged to be
+   * only conversation, or the reply turned out to have nothing for the page.
+   */
+  onTurnAside?: (turnId: string) => void
 }) {
-  const { chat, classifier, document, instructions, onTurnStart, onTurnEmpty } = options
+  const { chat, classifier, document, instructions, onTurnStart, onTurnEmpty, onTurnAside } = options
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [items, setItems] = useState<StreamItem[]>([])
   const [notes, setNotes] = useState<ChatNote[]>([])
@@ -68,11 +73,20 @@ export function useChatSession(options: {
   const abort = useRef<AbortController | null>(null)
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>())
 
+  // Leaving the page ends the reply under way. React's development check unmounts and at
+  // once remounts, and a request sent as the page opens (`chatRequest`) must outlive that:
+  // the ending waits to see whether the hook is back.
+  const mounted = useRef(false)
   useEffect(() => {
+    mounted.current = true
     const pending = timers.current
     return () => {
-      abort.current?.abort()
-      for (const timer of pending) clearTimeout(timer)
+      mounted.current = false
+      setTimeout(() => {
+        if (mounted.current) return
+        abort.current?.abort()
+        for (const timer of pending) clearTimeout(timer)
+      })
     }
   }, [])
 
@@ -120,6 +134,7 @@ export function useChatSession(options: {
         vacated = true
         patch({ unanswered: true })
         onTurnEmpty?.(turnId)
+        if (!controller.signal.aborted) onTurnAside?.(turnId)
       }
 
       setBusy(true)
@@ -131,7 +146,10 @@ export function useChatSession(options: {
         wantsContent(request, classifier, controller.signal),
         new Promise<boolean>((resolve) => setTimeout(() => resolve(true), PROMPT_PATIENCE)),
       ])
-      asksForContent.then((wanted) => wanted && place())
+      asksForContent.then((wanted) => {
+        if (wanted) place()
+        else if (!controller.signal.aborted) onTurnAside?.(turnId)
+      })
 
       const messages: ChatMessage[] = [{ role: "system", content: chatSystemPrompt(document, instructions) }, ...history.current, { role: "user", content: request }]
 
@@ -190,7 +208,7 @@ export function useChatSession(options: {
           setBusy(false)
         })
     },
-    [chat, classifier, document, instructions, onTurnStart, onTurnEmpty, addRemark],
+    [chat, classifier, document, instructions, onTurnStart, onTurnEmpty, onTurnAside, addRemark],
   )
 
   const stop = useCallback(() => abort.current?.abort(), [])

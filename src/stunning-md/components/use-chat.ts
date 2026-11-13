@@ -73,11 +73,20 @@ export function useChatSession(options: {
   const abort = useRef<AbortController | null>(null)
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>())
 
+  // Leaving the page ends the reply under way. React's development check unmounts and at
+  // once remounts, and a request sent as the page opens (`chatRequest`) must outlive that:
+  // the ending waits to see whether the hook is back.
+  const mounted = useRef(false)
   useEffect(() => {
+    mounted.current = true
     const pending = timers.current
     return () => {
-      abort.current?.abort()
-      for (const timer of pending) clearTimeout(timer)
+      mounted.current = false
+      setTimeout(() => {
+        if (mounted.current) return
+        abort.current?.abort()
+        for (const timer of pending) clearTimeout(timer)
+      })
     }
   }, [])
 

@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.2
+
+No prop or export was removed or renamed.
 
 ### Added
 
